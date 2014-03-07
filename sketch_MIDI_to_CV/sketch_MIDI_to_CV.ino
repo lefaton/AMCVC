@@ -45,29 +45,14 @@ void ReadData()
 {
   midiMessageBuffer[bufferPosition] = Serial.read();
    
-  //Midi Off Mess
-  if(midiMessageBuffer[bufferPosition] > noteOff && midiMessageBuffer[bufferPosition] < noteOn)
+  if(midiMessageBuffer[bufferPosition] > noteOff && midiMessageBuffer[bufferPosition] < patchRange)
   { 
     midiNoteBuffer[bufferPosition] = Serial.read();
     midiVelocityBuffer[bufferPosition] = Serial.read();
   }
   else
   {
-    //Midi On Mess
-    if(midiMessageBuffer[bufferPosition] > noteOn && midiMessageBuffer[bufferPosition] < aftertouch)
-    {
-      midiNoteBuffer[bufferPosition] = Serial.read();
-      midiVelocityBuffer[bufferPosition] = Serial.read();
-    }
-    else
-    {
-      //Midi CC Mess
-      if(midiMessageBuffer[bufferPosition] > cc && midiMessageBuffer[bufferPosition] < patchRange)
-      {
-        midiNoteBuffer[bufferPosition] = Serial.read();
-        midiVelocityBuffer[bufferPosition] = Serial.read();
-      }
-    }
+    //TODO: manage here for specific messages
   }
 }
 
@@ -123,7 +108,7 @@ void loop()
   while(Serial.available() && bufferPosition<10)
   {
     ReadData();
-    bufferPosition = ++bufferPosition%10;
+    bufferPosition = ++bufferPosition;
     blinkLED();
   }
   
