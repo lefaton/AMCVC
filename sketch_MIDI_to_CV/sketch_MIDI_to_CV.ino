@@ -119,14 +119,6 @@ void DACOutputToWriteIn(int input)
 void ReadData()
 {
   midiMessageBuffer[bufferPosition] = Serial.read();
-  
-  if( midiMessageBuffer[bufferPosition] & 0x0F != MIDIChannel)
-    {
-      midiMessageBuffer[bufferPosition] = 0x0;
-      midiNoteBuffer[bufferPosition] = 0x0;
-      midiVelocityBuffer[bufferPosition] = 0x0;
-    }
-    
    
   if(midiMessageBuffer[bufferPosition] > noteOff && midiMessageBuffer[bufferPosition] < patchRange)
   {
@@ -147,7 +139,8 @@ void ReadData()
   }
   else
   {
-    //TODO: manage here for specific messages
+    //TODO: manage here for specific ignored messages
+    midiMessageBuffer[bufferPosition] = 0x0;
   }
 }
 
