@@ -6,16 +6,26 @@ Get MIDI message and transform them into Hexa numbers driving a 12 bits DAC
 const int MIDIChannel = 3;
 
 //const IO variables
-const int midiInputPin = 2;
-const int DACInputPin = 3;
-const int ledPin = 6;
+const int midiInput_Pin = 2;
+//const int DACInputPin = 3;
+const int led_Pin = 6;
+
+//74HC595 control
+const int STCP_Pin = 10;
+const int SHCP_Pin = 11;
+const int SRDS_Pin = 12;
 
 //MAX526 DAC control
-const int CSMSBPin = 4; //CSLSB true by default using a 74HC04 //they are always inverted
-const int WRPin = 5; //To trigger after write
-const int LDACPin = 7; //Load written bytes into DAC registers
-const int Add0Pin = 8;
-const int Add1Pin = 9;
+const int CSMSB_Pin = 4; //CSLSB true by default using a 74HC04 //they are always inverted
+const int WR_Pin = 5; //To trigger after write
+const int LDAC_Pin = 7; //Load written bytes into DAC registers
+const int Addr_0_Pin = 8;
+const int Addr_1_Pin = 9;
+
+const int VCO_DAC_ID = 0;
+const int Gate_DAC_ID = 1;
+const int VCF_DAC_ID = 2;
+const int Decay_DAC_ID = 3;
 
 byte LSBytes = 0x0;
 byte MSBytes = 0x0;
@@ -53,32 +63,62 @@ const byte stopSeq = 0xFC;
 void setup()
 {
  Serial.begin(31250);
- pinMode(midiInputPin, INPUT);
- pinMode(DACInputPin, OUTPUT);
- pinMode(ledPin, OUTPUT);
- pinMode(CSMSBPin, OUTPUT);
- pinMode(WRPin, OUTPUT);
- pinMode(LDACPin, OUTPUT);
- pinMode(Add0Pin, OUTPUT);
- pinMode(Add1Pin, OUTPUT);
+ pinMode(midiInput_Pin, INPUT);
+ pinMode(DACInput_Pin, OUTPUT);
+ pinMode(led_Pin, OUTPUT);
+ pinMode(CSMSB_Pin, OUTPUT);
+ pinMode(WR_Pin, OUTPUT);
+ pinMode(LDAC_Pin, OUTPUT);
+ pinMode(Addr_0_Pin, OUTPUT);
+ pinMode(Addr_1_Pin, OUTPUT);
+ pinMode(STCP_Pin, OUTPUT);
+ pinMode(SHCP_Pin, OUTPUT);
+ pinMode(SRDS_Pin, OUTPUT);
 }
 
-void WriteBytes(int DACOutput)
+//Write bits one by one to the shift register 74HC595
+void WriteShiftRegister(byte data)
+{
+  //74HC595 - step1
+  digitalWrite(SHCPPin,LOW);
+  digitalWrite(STCPPin,LOW); 
+  
+  for (mask = 00000001; mask>0; mask <<= 1)
+  {
+    if(mask & data)
+    {
+      digitalWrite(SRDSPin,HIGH);
+    }
+    else
+    {
+      digitalWrite(SRDSPin,LOW); 
+    }
+    
+    //74HC595 - step2
+    digitalWrite(SHCPPin,HIGH);
+    digitalWrite(SHCPPin,LOW); 
+  }
+  
+  //74HC595 - step3
+  digitalWrite(STCPPin,HIGH);
+}
+
+void WriteDAC(int DACOutput)
 {
   DACOutputToWriteIn(DACOutput);
-  
+
   //LSB first
   digitalWrite(CSMSBPin,HIGH);//inverted (LOW set active)
   digitalWrite(WRPin,LOW);
   
-  Serial.print(LSBytes,BYTE);
+  WriteShiftRegister(LSBytes);
   digitalWrite(WRPin,HIGH);
-   
+  
   //MSB Second
   digitalWrite(CSMSBPin,LOW);
   digitalWrite(WRPin,LOW);
-  
-  Serial.print(MSBytes,BYTE);
+
+  WriteShiftRegister(MSBytes);
   digitalWrite(WRPin,HIGH);
   
   //actually write into DAC register
@@ -150,14 +190,30 @@ void ProcessData()
   if(midiMessageBuffer[bufferPosition] > noteOff && midiMessageBuffer[bufferPosition] < noteOn)
   { 
     //Set gate voltage to 0V
+    LSBytes = 0x0;
+    MSBytes = 0x0;
+    WriteDAC(Gate_DAC_ID);
   }
   else
   {
     //Midi On Mess
     if(midiMessageBuffer[bufferPosition] > noteOn && midiMessageBuffer[bufferPosition] < aftertouch)
     {
-      //Set gate voltage to 5V
-      //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]
+      if(midiVelocityBuffer[bufferPosition]>0)
+      {
+        //Set gate voltage to 5V
+        LSBytes = 0xF;
+        MSBytes = 0x8;
+        WriteDAC(Gate_DAC_ID);
+        //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]
+      
+        //128*32 =  max val 4096
+        int convertedVal = (midiNoteBuffer[bufferPosition] + 1)*32;
+  
+        LSBytes = lowByte(convertedVal);
+        MSBytes = highByte(convertedVal);
+        WriteDAC(VCO_DAC_ID);
+      }
     }
     else
     {
