@@ -10,6 +10,8 @@ const int midiInput_Pin = 2;
 //const int DACInputPin = 3;
 const int led_Pin = 6;
 
+byte mask = 1; //bitmask
+
 //74HC595 control
 const int STCP_Pin = 10;
 const int SHCP_Pin = 11;
@@ -64,7 +66,6 @@ void setup()
 {
  Serial.begin(31250);
  pinMode(midiInput_Pin, INPUT);
- pinMode(DACInput_Pin, OUTPUT);
  pinMode(led_Pin, OUTPUT);
  pinMode(CSMSB_Pin, OUTPUT);
  pinMode(WR_Pin, OUTPUT);
@@ -80,27 +81,27 @@ void setup()
 void WriteShiftRegister(byte data)
 {
   //74HC595 - step1
-  digitalWrite(SHCPPin,LOW);
-  digitalWrite(STCPPin,LOW); 
-  
+  digitalWrite(SHCP_Pin,LOW);
+  digitalWrite(STCP_Pin,LOW); 
+
   for (mask = 00000001; mask>0; mask <<= 1)
   {
     if(mask & data)
     {
-      digitalWrite(SRDSPin,HIGH);
+      digitalWrite(SRDS_Pin,HIGH);
     }
     else
     {
-      digitalWrite(SRDSPin,LOW); 
+      digitalWrite(SRDS_Pin,LOW); 
     }
     
     //74HC595 - step2
-    digitalWrite(SHCPPin,HIGH);
-    digitalWrite(SHCPPin,LOW); 
+    digitalWrite(SHCP_Pin,HIGH);
+    digitalWrite(SHCP_Pin,LOW); 
   }
   
   //74HC595 - step3
-  digitalWrite(STCPPin,HIGH);
+  digitalWrite(STCP_Pin,HIGH);
 }
 
 void WriteDAC(int DACOutput)
@@ -108,49 +109,49 @@ void WriteDAC(int DACOutput)
   DACOutputToWriteIn(DACOutput);
 
   //LSB first
-  digitalWrite(CSMSBPin,HIGH);//inverted (LOW set active)
-  digitalWrite(WRPin,LOW);
+  digitalWrite(CSMSB_Pin,HIGH);//inverted (LOW set active)
+  digitalWrite(WR_Pin,LOW);
   
   WriteShiftRegister(LSBytes);
-  digitalWrite(WRPin,HIGH);
+  digitalWrite(WR_Pin,HIGH);
   
   //MSB Second
-  digitalWrite(CSMSBPin,LOW);
-  digitalWrite(WRPin,LOW);
+  digitalWrite(CSMSB_Pin,LOW);
+  digitalWrite(WR_Pin,LOW);
 
   WriteShiftRegister(MSBytes);
-  digitalWrite(WRPin,HIGH);
+  digitalWrite(WR_Pin,HIGH);
   
   //actually write into DAC register
-  digitalWrite(LDACPin,LOW);
-  digitalWrite(LDACPin,HIGH);
+  digitalWrite(LDAC_Pin,LOW);
+  digitalWrite(LDAC_Pin,HIGH);
 }
   
 void DACOutputToWriteIn(int input)
 {
   if(input == 0)
   {
-    digitalWrite(Add0Pin,LOW);
-    digitalWrite(Add1Pin,LOW);
+    digitalWrite(Addr_0_Pin,LOW);
+    digitalWrite(Addr_1_Pin,LOW);
   }  
   else
   {
     if(input == 1)
     {
-      digitalWrite(Add0Pin,HIGH);
-      digitalWrite(Add1Pin,LOW);
+      digitalWrite(Addr_0_Pin,HIGH);
+      digitalWrite(Addr_1_Pin,LOW);
     }
     else
     {
       if(input == 2)
       {
-        digitalWrite(Add0Pin,LOW);
-        digitalWrite(Add1Pin,HIGH);
+        digitalWrite(Addr_0_Pin,LOW);
+        digitalWrite(Addr_1_Pin,HIGH);
       }
       else
       {
-        digitalWrite(Add0Pin,HIGH);
-        digitalWrite(Add1Pin,HIGH); 
+        digitalWrite(Addr_0_Pin,HIGH);
+        digitalWrite(Addr_1_Pin,HIGH); 
       }
     }
   }
@@ -244,9 +245,9 @@ void ProcessData()
 
 void blinkLED()
 {
-   digitalWrite(ledPin,HIGH);
+   digitalWrite(led_Pin,HIGH);
    delay(100);
-   digitalWrite(ledPin,LOW);
+   digitalWrite(led_Pin,LOW);
    delay(100);
 }
 
