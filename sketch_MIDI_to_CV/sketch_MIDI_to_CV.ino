@@ -1,5 +1,7 @@
 /*
 Get MIDI message and transform them into Hexa numbers driving a 12 bits DAC
+By Utopikprod
+2014
 */
 
 //MIDI channel used
@@ -62,9 +64,13 @@ const byte startSeq = 0xFA;
 const byte contSeq = 0xFB;
 const byte stopSeq = 0xFC;
 
+HardwareSerial Uart = HardwareSerial();
+
 void setup()
-{
- Serial.begin(31250);
+{ 
+ Uart.begin(31250);
+ pinMode(PIN_D2, INPUT);
+ 
  pinMode(midiInput_Pin, INPUT);
  pinMode(led_Pin, OUTPUT);
  pinMode(CSMSB_Pin, OUTPUT);
@@ -75,11 +81,14 @@ void setup()
  pinMode(STCP_Pin, OUTPUT);
  pinMode(SHCP_Pin, OUTPUT);
  pinMode(SRDS_Pin, OUTPUT);
+ 
+ digitalWrite(led_Pin,HIGH);
 }
 
 //Write bits one by one to the shift register 74HC595
 void WriteShiftRegister(byte data)
 {
+  Uart.println("WriteShiftRegister");
   //74HC595 - step1
   digitalWrite(SHCP_Pin,LOW);
   digitalWrite(STCP_Pin,LOW); 
@@ -106,6 +115,7 @@ void WriteShiftRegister(byte data)
 
 void WriteDAC(int DACOutput)
 {
+  Uart.println("WriteDAC");
   DACOutputToWriteIn(DACOutput);
 
   //LSB first
@@ -129,6 +139,7 @@ void WriteDAC(int DACOutput)
   
 void DACOutputToWriteIn(int input)
 {
+  Uart.println("DACOutputToWriteIn");
   if(input == 0)
   {
     digitalWrite(Addr_0_Pin,LOW);
@@ -159,20 +170,20 @@ void DACOutputToWriteIn(int input)
 
 void ReadData()
 {
-  midiMessageBuffer[bufferPosition] = Serial.read();
+  midiMessageBuffer[bufferPosition] = Uart.read();
    
   if(midiMessageBuffer[bufferPosition] > noteOff && midiMessageBuffer[bufferPosition] < patchRange)
   {
-    if( midiMessageBuffer[bufferPosition] & 0x0F != MIDIChannel)
+    if( midiMessageBuffer[bufferPosition] & 0x0F != (MIDIChannel-1))
     {
       //ignore other channels, read in nowhere
-      Serial.read();
-      Serial.read();
+      Uart.read();
+      Uart.read();
     } 
     else
     {
-      midiNoteBuffer[bufferPosition] = Serial.read();
-      midiVelocityBuffer[bufferPosition] = Serial.read();
+      midiNoteBuffer[bufferPosition] = Uart.read();
+      midiVelocityBuffer[bufferPosition] = Uart.read();
     
       ++bufferPosition;
       blinkLED();
@@ -187,6 +198,7 @@ void ReadData()
 
 void ProcessData()
 {  
+  Uart.println("ProcessData");
   //Midi Off Mess
   if(midiMessageBuffer[bufferPosition] > noteOff && midiMessageBuffer[bufferPosition] < noteOn)
   { 
@@ -245,16 +257,15 @@ void ProcessData()
 
 void blinkLED()
 {
-   digitalWrite(led_Pin,HIGH);
-   delay(100);
    digitalWrite(led_Pin,LOW);
+   delay(100);
+   digitalWrite(led_Pin,HIGH);
    delay(100);
 }
 
 void loop()
 {
-  
-  while(Serial.available() && bufferPosition<bufferSize)
+  if( Uart.available() )//&& bufferPosition<bufferSize)
   {
     ReadData();
   }
@@ -262,6 +273,5 @@ void loop()
   while(bufferPosition>0)
   {
     ProcessData(); 
-  }
-  
+  } 
 }
