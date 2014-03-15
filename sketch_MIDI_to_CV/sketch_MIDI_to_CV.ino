@@ -15,12 +15,13 @@ const int led_Pin = 6;
 byte mask = 1; //bitmask
 
 //74HC595 control
-const int STCP_Pin = 10;
-const int SHCP_Pin = 11;
-const int SRDS_Pin = 12;
+const int STCP_Pin = 10;//latch pin
+const int SHCP_Pin = 11;//clock pin
+const int SRDS_Pin = 12;//data pin
 
 //MAX526 DAC control
-const int CSMSB_Pin = 4; //CSLSB true by default using a 74HC04 //they are always inverted
+const int CSMSB_Pin = 4;
+const int CSLSB_Pin = 13;
 const int WR_Pin = 5; //To trigger after write
 const int LDAC_Pin = 7; //Load written bytes into DAC registers
 const int Addr_0_Pin = 8;
@@ -76,6 +77,7 @@ void setup()
  pinMode(midiInput_Pin, INPUT);
  pinMode(led_Pin, OUTPUT);
  pinMode(CSMSB_Pin, OUTPUT);
+ pinMode(CSLSB_Pin, OUTPUT);
  pinMode(WR_Pin, OUTPUT);
  pinMode(LDAC_Pin, OUTPUT);
  pinMode(Addr_0_Pin, OUTPUT);
@@ -87,31 +89,12 @@ void setup()
  digitalWrite(led_Pin,HIGH);
 }
 
-//Write bits one by one to the shift register 74HC595
+//Write bits to the shift register 74HC595
 void WriteShiftRegister(byte data)
 {
-  //74HC595 - step1
-  digitalWrite(SHCP_Pin,LOW);
-  digitalWrite(STCP_Pin,LOW); 
-
-  for (mask = 00000001; mask>0; mask <<= 1)
-  {
-    if(mask & data)
-    {
-      digitalWrite(SRDS_Pin,HIGH);
-    }
-    else
-    {
-      digitalWrite(SRDS_Pin,LOW); 
-    }
-    
-    //74HC595 - step2
-    digitalWrite(SHCP_Pin,HIGH);
-    digitalWrite(SHCP_Pin,LOW); 
-  }
-  
-  //74HC595 - step3
-  digitalWrite(STCP_Pin,HIGH);
+  digitalWrite(STCP_Pin,LOW);
+  shiftOut(SRDS_Pin, SHCP_Pin, LSBFIRST, data);
+  digitalWrite(STCP_Pin,HIGH); 
 }
 
 void WriteDAC(int DACOutput)
@@ -119,18 +102,22 @@ void WriteDAC(int DACOutput)
   DACOutputToWriteIn(DACOutput);
 
   //LSB first
-  digitalWrite(CSMSB_Pin,HIGH);//inverted (LOW set active)
-  digitalWrite(WR_Pin,LOW);
+  digitalWrite(CSLSB_Pin,LOW);//Active LSB
   
+  digitalWrite(WR_Pin,LOW);
   WriteShiftRegister(LSBytes);
   digitalWrite(WR_Pin,HIGH);
   
+  digitalWrite(CSLSB_Pin,HIGH);//Deactive LSB
+  
   //MSB Second
-  digitalWrite(CSMSB_Pin,LOW);
+  digitalWrite(CSMSB_Pin,LOW);//Active MSB
+  
   digitalWrite(WR_Pin,LOW);
-
   WriteShiftRegister(MSBytes);
   digitalWrite(WR_Pin,HIGH);
+  
+  digitalWrite(CSMSB_Pin,HIGH);//Deactive MSB
   
   //actually write into DAC register
   digitalWrite(LDAC_Pin,LOW);
@@ -227,7 +214,7 @@ void ProcessData()
         //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]
       
         //128*32 =  max val 4096
-        int convertedVal = (midiNoteBuffer[bufferPosition] + 1)*32;
+        int convertedVal = ((midiNoteBuffer[bufferPosition] + 1)*32-1);
   
         LSBytes = lowByte(convertedVal);
         MSBytes = highByte(convertedVal);
