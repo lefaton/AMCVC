@@ -42,6 +42,7 @@ byte midiNoteBuffer[bufferSize] = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
 byte midiVelocityBuffer[bufferSize] = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
 
 int bufferPosition = 0;
+int bufferMaxWrittenPos = 0;
 
 //x0x heart specific control
 const byte accentCC = 0x64;
@@ -69,8 +70,9 @@ HardwareSerial Uart = HardwareSerial();
 void setup()
 { 
  Uart.begin(31250);
+ Serial.begin(31250);
  pinMode(PIN_D2, INPUT);
- 
+ pinMode(PIN_D3, OUTPUT);
  pinMode(midiInput_Pin, INPUT);
  pinMode(led_Pin, OUTPUT);
  pinMode(CSMSB_Pin, OUTPUT);
@@ -88,7 +90,6 @@ void setup()
 //Write bits one by one to the shift register 74HC595
 void WriteShiftRegister(byte data)
 {
-  Uart.println("WriteShiftRegister");
   //74HC595 - step1
   digitalWrite(SHCP_Pin,LOW);
   digitalWrite(STCP_Pin,LOW); 
@@ -115,7 +116,6 @@ void WriteShiftRegister(byte data)
 
 void WriteDAC(int DACOutput)
 {
-  Uart.println("WriteDAC");
   DACOutputToWriteIn(DACOutput);
 
   //LSB first
@@ -139,7 +139,6 @@ void WriteDAC(int DACOutput)
   
 void DACOutputToWriteIn(int input)
 {
-  Uart.println("DACOutputToWriteIn");
   if(input == 0)
   {
     digitalWrite(Addr_0_Pin,LOW);
@@ -170,11 +169,11 @@ void DACOutputToWriteIn(int input)
 
 void ReadData()
 {
-  midiMessageBuffer[bufferPosition] = Uart.read();
-   
-  if(midiMessageBuffer[bufferPosition] > noteOff && midiMessageBuffer[bufferPosition] < patchRange)
+  midiMessageBuffer[bufferMaxWrittenPos] = Uart.read();
+
+  if(midiMessageBuffer[bufferMaxWrittenPos] > noteOff && midiMessageBuffer[bufferMaxWrittenPos] < patchRange)
   {
-    if( midiMessageBuffer[bufferPosition] & 0x0F != (MIDIChannel-1))
+    if( midiMessageBuffer[bufferMaxWrittenPos] & 0x0F != (MIDIChannel-1))
     {
       //ignore other channels, read in nowhere
       Uart.read();
@@ -184,8 +183,15 @@ void ReadData()
     {
       midiNoteBuffer[bufferPosition] = Uart.read();
       midiVelocityBuffer[bufferPosition] = Uart.read();
+      
+      Serial.print(midiMessageBuffer[bufferMaxWrittenPos],HEX);
+      Serial.print(" ");
+      Serial.print(midiNoteBuffer[bufferMaxWrittenPos],HEX);
+      Serial.print(" ");
+      Serial.print(midiVelocityBuffer[bufferMaxWrittenPos],HEX);
+      Serial.print(" ");
     
-      ++bufferPosition;
+      ++bufferMaxWrittenPos;
       blinkLED();
     }
   }
@@ -198,9 +204,8 @@ void ReadData()
 
 void ProcessData()
 {  
-  Uart.println("ProcessData");
   //Midi Off Mess
-  if(midiMessageBuffer[bufferPosition] > noteOff && midiMessageBuffer[bufferPosition] < noteOn)
+  if(midiMessageBuffer[bufferPosition] > (noteOff-1) && midiMessageBuffer[bufferPosition] < noteOn)
   { 
     //Set gate voltage to 0V
     LSBytes = 0x0;
@@ -210,7 +215,7 @@ void ProcessData()
   else
   {
     //Midi On Mess
-    if(midiMessageBuffer[bufferPosition] > noteOn && midiMessageBuffer[bufferPosition] < aftertouch)
+    if(midiMessageBuffer[bufferPosition] > (noteOn-1) && midiMessageBuffer[bufferPosition] < aftertouch)
     {
       if(midiVelocityBuffer[bufferPosition]>0)
       {
@@ -218,6 +223,7 @@ void ProcessData()
         LSBytes = 0xF;
         MSBytes = 0x8;
         WriteDAC(Gate_DAC_ID);
+        Serial.print(" SET Volt : ");
         //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]
       
         //128*32 =  max val 4096
@@ -225,6 +231,9 @@ void ProcessData()
   
         LSBytes = lowByte(convertedVal);
         MSBytes = highByte(convertedVal);
+        Serial.print(MSBytes,BIN);
+        Serial.print(" ");
+        Serial.println(LSBytes,BIN);
         WriteDAC(VCO_DAC_ID);
       }
     }
@@ -244,15 +253,13 @@ void ProcessData()
         }
       }
     }
-  
-    
   }
   
   midiMessageBuffer[bufferPosition] = 0x0;
   midiNoteBuffer[bufferPosition] = 0x0;
   midiVelocityBuffer[bufferPosition] = 0x0;
   
-  --bufferPosition;
+  ++bufferPosition;
 }
 
 void blinkLED()
@@ -265,13 +272,18 @@ void blinkLED()
 
 void loop()
 {
-  if( Uart.available() )//&& bufferPosition<bufferSize)
+  if( Uart.available() && bufferMaxWrittenPos<bufferSize)
   {
     ReadData();
   }
   
-  while(bufferPosition>0)
+  while(bufferMaxWrittenPos>0)
   {
     ProcessData(); 
+    if(bufferMaxWrittenPos==bufferPosition)
+    {
+      bufferPosition = 0;
+      bufferMaxWrittenPos = 0;
+    }
   } 
 }
