@@ -12,8 +12,6 @@ const int midiInput_Pin = 2;
 //const int DACInputPin = 3;
 const int led_Pin = 6;
 
-byte mask = 1; //bitmask
-
 //74HC595 control
 const int STCP_Pin = 10;//latch pin
 const int SHCP_Pin = 11;//clock pin
