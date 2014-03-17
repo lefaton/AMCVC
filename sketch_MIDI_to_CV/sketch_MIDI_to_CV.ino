@@ -126,27 +126,27 @@ void DACOutputToWriteIn(int input)
 {
   if(input == 0)
   {
-    digitalWrite(Addr_0_Pin,LOW);
-    digitalWrite(Addr_1_Pin,LOW);
+    digitalWrite(Addr_0_Pin,HIGH);
+    digitalWrite(Addr_1_Pin,HIGH);
   }  
   else
   {
     if(input == 1)
     {
-      digitalWrite(Addr_0_Pin,HIGH);
-      digitalWrite(Addr_1_Pin,LOW);
+      digitalWrite(Addr_0_Pin,LOW);
+      digitalWrite(Addr_1_Pin,HIGH);
     }
     else
     {
       if(input == 2)
       {
-        digitalWrite(Addr_0_Pin,LOW);
-        digitalWrite(Addr_1_Pin,HIGH);
+        digitalWrite(Addr_0_Pin,HIGH);
+        digitalWrite(Addr_1_Pin,LOW);
       }
       else
       {
-        digitalWrite(Addr_0_Pin,HIGH);
-        digitalWrite(Addr_1_Pin,HIGH); 
+        digitalWrite(Addr_0_Pin,LOW);
+        digitalWrite(Addr_1_Pin,LOW); 
       }
     }
   }
@@ -169,6 +169,7 @@ void ReadData()
       midiNoteBuffer[bufferPosition] = Uart.read();
       midiVelocityBuffer[bufferPosition] = Uart.read();
       
+      //debug serial output
       Serial.print(midiMessageBuffer[bufferMaxWrittenPos],HEX);
       Serial.print(" ");
       Serial.print(midiNoteBuffer[bufferMaxWrittenPos],HEX);
