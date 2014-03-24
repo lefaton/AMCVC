@@ -50,14 +50,14 @@ const byte triggerLimit = 0x64;
 
 //MIDI specific table
 const byte noteOff = 0x80;
-const byte noteOn =  0x90;
+const byte noteOn = 0x90;
 const byte aftertouch = 0xA0;
 const byte cc = 0xB0;
 const byte patchRange = 0xC0;
 const byte channelPressure = 0xD0;
 const byte pitchBend = 0xE0;
 const byte sysexStart = 0xF0;
-	
+
 const byte sysexStop = 0xF7;
 const byte clock = 0xF8;
 const byte startSeq = 0xFA;
@@ -67,7 +67,7 @@ const byte stopSeq = 0xFC;
 HardwareSerial Uart = HardwareSerial();
 
 void setup()
-{ 
+{
  Uart.begin(31250);
  Serial.begin(31250);
  pinMode(PIN_D2, INPUT);
@@ -92,7 +92,7 @@ void WriteShiftRegister(byte data)
 {
   digitalWrite(STCP_Pin,LOW);
   shiftOut(SRDS_Pin, SHCP_Pin, LSBFIRST, data);
-  digitalWrite(STCP_Pin,HIGH); 
+  digitalWrite(STCP_Pin,HIGH);
 }
 
 void WriteDAC(int DACOutput)
@@ -128,7 +128,7 @@ void DACOutputToWriteIn(int input)
   {
     digitalWrite(Addr_0_Pin,HIGH);
     digitalWrite(Addr_1_Pin,HIGH);
-  }  
+  }
   else
   {
     if(input == 1)
@@ -146,7 +146,7 @@ void DACOutputToWriteIn(int input)
       else
       {
         digitalWrite(Addr_0_Pin,LOW);
-        digitalWrite(Addr_1_Pin,LOW); 
+        digitalWrite(Addr_1_Pin,LOW);
       }
     }
   }
@@ -154,45 +154,56 @@ void DACOutputToWriteIn(int input)
 
 void ReadData()
 {
-  midiMessageBuffer[bufferMaxWrittenPos] = Uart.read();
-
-  if(midiMessageBuffer[bufferMaxWrittenPos] > noteOff && midiMessageBuffer[bufferMaxWrittenPos] < patchRange)
+  byte temp[3];
+  Uart.readBytes(temp,3);
+ 
+  if(temp[0] == 0xFE)
   {
-    if( midiMessageBuffer[bufferMaxWrittenPos] & 0x0F != (MIDIChannel-1))
-    {
-      //ignore other channels, read in nowhere
-      Uart.read();
-      Uart.read();
-    } 
-    else
-    {
-      midiNoteBuffer[bufferPosition] = Uart.read();
-      midiVelocityBuffer[bufferPosition] = Uart.read();
-      
-      //debug serial output
-      Serial.print(midiMessageBuffer[bufferMaxWrittenPos],HEX);
-      Serial.print(" ");
-      Serial.print(midiNoteBuffer[bufferMaxWrittenPos],HEX);
-      Serial.print(" ");
-      Serial.print(midiVelocityBuffer[bufferMaxWrittenPos],HEX);
-      Serial.print(" ");
-    
-      ++bufferMaxWrittenPos;
-      blinkLED();
-    }
+    //clock
+    return; 
   }
-  else
+  
+  byte channel = temp[0] & 0x0F;
+  
+  //get only state ON/OFF message && ignore other channels
+  if(temp[0]>(noteOff-1) && temp[0]<aftertouch && channel == (MIDIChannel-1))
   {
-    //TODO: manage here for specific ignored messages
-    midiMessageBuffer[bufferPosition] = 0x0;
+    midiMessageBuffer[bufferPosition] = temp[0];
+    midiNoteBuffer[bufferPosition] = temp[1];
+    midiVelocityBuffer[bufferPosition] = temp[2];
+/*
+    //debug serial output
+    Serial.print(midiMessageBuffer[bufferPosition],HEX);
+    Serial.print(" ");
+    Serial.print(midiNoteBuffer[bufferPosition],HEX);
+    Serial.print(" ");
+    Serial.print(midiVelocityBuffer[bufferPosition],HEX);
+    Serial.println("");
+*/
+    ++bufferPosition;
+    blinkLED();
   }
 }
 
-void ProcessData()
-{  
-  //Midi Off Mess
+boolean IsMessageNoteOff()
+{
   if(midiMessageBuffer[bufferPosition] > (noteOff-1) && midiMessageBuffer[bufferPosition] < noteOn)
-  { 
+  {
+    return true; 
+  }
+  if(midiMessageBuffer[bufferPosition] > (noteOn-1) && midiMessageBuffer[bufferPosition] < aftertouch && midiVelocityBuffer[bufferPosition]==0)
+  {
+    return true;
+  }
+  return false;
+}
+
+void ProcessData()
+{
+  --bufferPosition;
+  //Midi Off Mess
+  if( IsMessageNoteOff() )
+  {
     //Set gate voltage to 0V
     LSBytes = 0x0;
     MSBytes = 0x0;
@@ -203,25 +214,23 @@ void ProcessData()
     //Midi On Mess
     if(midiMessageBuffer[bufferPosition] > (noteOn-1) && midiMessageBuffer[bufferPosition] < aftertouch)
     {
-      if(midiVelocityBuffer[bufferPosition]>0)
-      {
-        //Set gate voltage to 5V
-        LSBytes = 0xF;
-        MSBytes = 0x8;
-        WriteDAC(Gate_DAC_ID);
-        Serial.print(" SET Volt : ");
-        //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]
-      
-        //128*32 =  max val 4096
-        int convertedVal = ((midiNoteBuffer[bufferPosition] + 1)*32-1);
-  
-        LSBytes = lowByte(convertedVal);
-        MSBytes = highByte(convertedVal);
-        Serial.print(MSBytes,BIN);
-        Serial.print(" ");
-        Serial.println(LSBytes,BIN);
-        WriteDAC(VCO_DAC_ID);
-      }
+      //Set gate voltage to 5V
+      LSBytes = 0xF;
+      MSBytes = 0x8;
+      WriteDAC(Gate_DAC_ID); 
+                
+      //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]   
+      //128*32 = max val 4096
+      int convertedVal = ((midiNoteBuffer[bufferPosition] + 1)*32-1);  
+      LSBytes = lowByte(convertedVal);
+      MSBytes = highByte(convertedVal);
+    /*    
+      Serial.print("VCO Volt : ");
+      Serial.print(MSBytes,BIN);
+      Serial.print(" ");
+      Serial.println(LSBytes,BIN);
+    */
+      WriteDAC(VCO_DAC_ID);
     }
     else
     {
@@ -244,32 +253,24 @@ void ProcessData()
   midiMessageBuffer[bufferPosition] = 0x0;
   midiNoteBuffer[bufferPosition] = 0x0;
   midiVelocityBuffer[bufferPosition] = 0x0;
-  
-  ++bufferPosition;
 }
 
 void blinkLED()
 {
    digitalWrite(led_Pin,LOW);
-   delay(100);
+   delay(25);
    digitalWrite(led_Pin,HIGH);
-   delay(100);
 }
 
 void loop()
 {
-  if( Uart.available() && bufferMaxWrittenPos<bufferSize)
+  if( Uart.available() && bufferPosition<bufferSize)
   {
     ReadData();
   }
   
-  while(bufferMaxWrittenPos>0)
+  while(bufferPosition>0)
   {
-    ProcessData(); 
-    if(bufferMaxWrittenPos==bufferPosition)
-    {
-      bufferPosition = 0;
-      bufferMaxWrittenPos = 0;
-    }
-  } 
+    ProcessData();    
+  }
 }
