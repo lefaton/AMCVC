@@ -4,6 +4,8 @@ By Utopikprod
 2014
 */
 
+#include <MIDI.h>
+
 //MIDI channel used
 const int MIDIChannel = 3;
 
@@ -33,15 +35,7 @@ const int Decay_DAC_ID = 3;
 byte LSBytes = 0x0;
 byte MSBytes = 0x0;
 
-//buffer receiver
-const int bufferSize = 10;
-
-byte midiMessageBuffer[bufferSize] = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
-byte midiNoteBuffer[bufferSize] = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
-byte midiVelocityBuffer[bufferSize] = {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0};
-
-int bufferPosition = 0;
-int bufferMaxWrittenPos = 0;
+int type, note, velocity, channel, d1, d2;
 
 //x0x heart specific control
 const byte accentCC = 0x64;
@@ -68,8 +62,11 @@ HardwareSerial Uart = HardwareSerial();
 
 void setup()
 {
+  
+ MIDI.begin(MIDI_CHANNEL_OMNI);
+ 
  Uart.begin(31250);
- Serial.begin(31250);
+ Serial.begin(57600);
  pinMode(PIN_D2, INPUT);
  pinMode(PIN_D3, OUTPUT);
  pinMode(midiInput_Pin, INPUT);
@@ -152,58 +149,12 @@ void DACOutputToWriteIn(int input)
   }
 }
 
-void ReadData()
+void ProcessData(int messageType)
 {
-  byte temp[3];
-  Uart.readBytes(temp,3);
- 
-  if(temp[0] == 0xFE)
-  {
-    //clock
-    return; 
-  }
-  
-  byte channel = temp[0] & 0x0F;
-  
-  //get only state ON/OFF message && ignore other channels
-  if(temp[0]>(noteOff-1) && temp[0]<aftertouch && channel == (MIDIChannel-1))
-  {
-    midiMessageBuffer[bufferPosition] = temp[0];
-    midiNoteBuffer[bufferPosition] = temp[1];
-    midiVelocityBuffer[bufferPosition] = temp[2];
-/*
-    //debug serial output
-    Serial.print(midiMessageBuffer[bufferPosition],HEX);
-    Serial.print(" ");
-    Serial.print(midiNoteBuffer[bufferPosition],HEX);
-    Serial.print(" ");
-    Serial.print(midiVelocityBuffer[bufferPosition],HEX);
-    Serial.println("");
-*/
-    ++bufferPosition;
-    blinkLED();
-  }
-}
-
-boolean IsMessageNoteOff()
-{
-  if(midiMessageBuffer[bufferPosition] > (noteOff-1) && midiMessageBuffer[bufferPosition] < noteOn)
-  {
-    return true; 
-  }
-  if(midiMessageBuffer[bufferPosition] > (noteOn-1) && midiMessageBuffer[bufferPosition] < aftertouch && midiVelocityBuffer[bufferPosition]==0)
-  {
-    return true;
-  }
-  return false;
-}
-
-void ProcessData()
-{
-  --bufferPosition;
   //Midi Off Mess
-  if( IsMessageNoteOff() )
+  if( messageType == 0 )
   {
+    blinkLED();
     //Set gate voltage to 0V
     LSBytes = 0x0;
     MSBytes = 0x0;
@@ -212,8 +163,9 @@ void ProcessData()
   else
   {
     //Midi On Mess
-    if(midiMessageBuffer[bufferPosition] > (noteOn-1) && midiMessageBuffer[bufferPosition] < aftertouch)
+    if(messageType == 1)
     {
+      blinkLED();
       //Set gate voltage to 5V
       LSBytes = 0xF;
       MSBytes = 0x8;
@@ -221,7 +173,7 @@ void ProcessData()
                 
       //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]   
       //128*32 = max val 4096
-      int convertedVal = ((midiNoteBuffer[bufferPosition] + 1)*32-1);  
+      int convertedVal = ((note + 1)*32-1);  
       LSBytes = lowByte(convertedVal);
       MSBytes = highByte(convertedVal);
     /*    
@@ -235,24 +187,20 @@ void ProcessData()
     else
     {
       //Midi CC Mess
-      if(midiMessageBuffer[bufferPosition] > noteOn && midiMessageBuffer[bufferPosition] < aftertouch)
+      if(messageType == 2)
       {
-        if(midiNoteBuffer[bufferPosition]==accentCC && midiVelocityBuffer[bufferPosition]>triggerLimit)
+        if(note==accentCC && velocity>triggerLimit)
         {
            //Set On digital out for accent
         }
         
-        if(midiNoteBuffer[bufferPosition]==slideCC && midiVelocityBuffer[bufferPosition]>triggerLimit)
+        if(note==slideCC && velocity>triggerLimit)
         {
            //Set On digital out for slide
         }
       }
     }
   }
-  
-  midiMessageBuffer[bufferPosition] = 0x0;
-  midiNoteBuffer[bufferPosition] = 0x0;
-  midiVelocityBuffer[bufferPosition] = 0x0;
 }
 
 void blinkLED()
@@ -264,13 +212,36 @@ void blinkLED()
 
 void loop()
 {
-  if( Uart.available() && bufferPosition<bufferSize)
+  if( MIDI.read() )
   {
-    ReadData();
-  }
-  
-  while(bufferPosition>0)
-  {
-    ProcessData();    
+    byte type = MIDI.getType();
+    switch (type) {
+      case NoteOn:
+        note = MIDI.getData1();
+        velocity = MIDI.getData2();
+        channel = MIDI.getChannel();
+        if (velocity > 0) 
+        {
+          Serial.println(String("Note On:  ch=") + channel + ", note=" + note + ", velocity=" + velocity);
+          ProcessData(1);
+        } 
+        else 
+        {
+          Serial.println(String("Note Off: ch=") + channel + ", note=" + note);
+          ProcessData(0);
+        }
+        break;
+      case NoteOff:
+        note = MIDI.getData1();
+        velocity = MIDI.getData2();
+        channel = MIDI.getChannel();
+        Serial.println(String("Note Off: ch=") + channel + ", note=" + note + ", velocity=" + velocity);
+        ProcessData(0);
+        break;
+      default:
+        d1 = MIDI.getData1();
+        d2 = MIDI.getData2();
+        //Serial.println(String("Message, type=") + type + ", data = " + d1 + " " + d2);
+    }
   }
 }
