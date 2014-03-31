@@ -9,6 +9,9 @@ By Utopikprod
 //MIDI channel used
 const int MIDIChannel = 3;
 
+//CV VCO Offset
+const int VCO_CV_Offset = 0;
+
 //const IO variables
 const int midiInput_Pin = 2;
 //const int DACInputPin = 3;
@@ -92,9 +95,10 @@ void setup()
  pinMode(DAC_7_Pin, OUTPUT);
  
  digitalWrite(led_Pin,HIGH);
+ InitializeDAC();
 }
 
-//Write bits to the shift register 74HC595
+//Write bits to the DAC
 void WriteByteToDAC(byte data)
 {
   int i;
@@ -257,8 +261,9 @@ void ProcessData(int messageType)
       WriteDAC(Gate_DAC_ID); 
                 
       //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]   
-      //128*32 = max val 4096
-      int convertedVal = ((note + 1)*32-1);  
+      //128*32-1 = max val 4095
+      int convertedVal = ((note + 1)*32-1);
+      convertedVal += VCO_CV_Offset;  
       LSBytes = lowByte(convertedVal);
       MSBytes = highByte(convertedVal);
 
@@ -290,6 +295,14 @@ void ProcessData(int messageType)
   }
 }
 
+void InitializeDAC()
+{
+  LSBytes = 0x0;
+  MSBytes = 0x0;
+  WriteDAC(Gate_DAC_ID);
+  WriteDAC(VCO_DAC_ID);
+}
+
 void blinkLED()
 {
    digitalWrite(led_Pin,LOW);
@@ -310,7 +323,6 @@ void loop()
         if (velocity > 0) 
         {
           Serial.println(String("Note On:  ch=") + channel + ", note=" + note + ", velocity=" + velocity);
-          Serial.println(note, HEX);
           ProcessData(1);
         } 
         else 
