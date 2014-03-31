@@ -14,11 +14,6 @@ const int midiInput_Pin = 2;
 //const int DACInputPin = 3;
 const int led_Pin = 6;
 
-//74HC595 control
-const int STCP_Pin = 10;//latch pin
-const int SHCP_Pin = 11;//clock pin
-const int SRDS_Pin = 12;//data pin
-
 //MAX526 DAC control
 const int CSMSB_Pin = 4;
 const int CSLSB_Pin = 13;
@@ -26,6 +21,16 @@ const int WR_Pin = 5; //To trigger after write
 const int LDAC_Pin = 7; //Load written bytes into DAC registers
 const int Addr_0_Pin = 8;
 const int Addr_1_Pin = 9;
+
+//MAX526 DAC Data
+const int DAC_0_Pin = 19;
+const int DAC_1_Pin = 20;
+const int DAC_2_Pin = 21;
+const int DAC_3_Pin = 22;
+const int DAC_4_Pin = 23;
+const int DAC_5_Pin = 10;
+const int DAC_6_Pin = 11;
+const int DAC_7_Pin = 12;
 
 const int VCO_DAC_ID = 0;
 const int Gate_DAC_ID = 1;
@@ -77,42 +82,122 @@ void setup()
  pinMode(LDAC_Pin, OUTPUT);
  pinMode(Addr_0_Pin, OUTPUT);
  pinMode(Addr_1_Pin, OUTPUT);
- pinMode(STCP_Pin, OUTPUT);
- pinMode(SHCP_Pin, OUTPUT);
- pinMode(SRDS_Pin, OUTPUT);
+ pinMode(DAC_0_Pin, OUTPUT);
+ pinMode(DAC_1_Pin, OUTPUT);
+ pinMode(DAC_2_Pin, OUTPUT);
+ pinMode(DAC_3_Pin, OUTPUT);
+ pinMode(DAC_4_Pin, OUTPUT);
+ pinMode(DAC_5_Pin, OUTPUT);
+ pinMode(DAC_6_Pin, OUTPUT);
+ pinMode(DAC_7_Pin, OUTPUT);
  
  digitalWrite(led_Pin,HIGH);
 }
 
 //Write bits to the shift register 74HC595
-void WriteShiftRegister(byte data)
+void WriteByteToDAC(byte data)
 {
-  digitalWrite(STCP_Pin,LOW);
-  shiftOut(SRDS_Pin, SHCP_Pin, LSBFIRST, data);
-  digitalWrite(STCP_Pin,HIGH);
+  int i;
+  for(i=7;i>=0;i--)
+  {
+    if(data & (1<<i))
+    {
+      switch(i)
+      {
+        case 0: 
+          digitalWrite(DAC_0_Pin,HIGH);
+          break;
+        case 1:
+          digitalWrite(DAC_1_Pin,HIGH);
+          break;
+        case 2:
+          digitalWrite(DAC_2_Pin,HIGH);
+          break;
+        case 3:
+          digitalWrite(DAC_3_Pin,HIGH);
+          break;
+        case 4:
+          digitalWrite(DAC_4_Pin,HIGH);
+          break;
+        case 5:
+          digitalWrite(DAC_5_Pin,HIGH);
+          break;
+        case 6:
+          digitalWrite(DAC_6_Pin,HIGH);
+          break;
+        case 7:
+          digitalWrite(DAC_7_Pin,HIGH);
+          break;
+        default:
+          Serial.println("WriteByteToDAC error");
+      }
+    }
+  }
 }
+
+void CleanByteToDAC()
+{
+  int i;
+  for(i=7;i>=0;i--)
+  {
+      switch(i)
+      {
+        case 0: 
+          digitalWrite(DAC_0_Pin,LOW);
+          break;
+        case 1:
+          digitalWrite(DAC_1_Pin,LOW);
+          break;
+        case 2:
+          digitalWrite(DAC_2_Pin,LOW);
+          break;
+        case 3:
+          digitalWrite(DAC_3_Pin,LOW);
+          break;
+        case 4:
+          digitalWrite(DAC_4_Pin,LOW);
+          break;
+        case 5:
+          digitalWrite(DAC_5_Pin,LOW);
+          break;
+        case 6:
+          digitalWrite(DAC_6_Pin,LOW);
+          break;
+        case 7:
+          digitalWrite(DAC_7_Pin,LOW);
+          break;
+        default:
+          Serial.println("CleanByteToDAC error");
+      }  
+  }
+}
+
 
 void WriteDAC(int DACOutput)
 {
   DACOutputToWriteIn(DACOutput);
-
+ 
   //LSB first
+  CleanByteToDAC();
   digitalWrite(CSLSB_Pin,LOW);//Active LSB
   
   digitalWrite(WR_Pin,LOW);
-  WriteShiftRegister(LSBytes);
+  WriteByteToDAC(LSBytes);
   digitalWrite(WR_Pin,HIGH);
   
   digitalWrite(CSLSB_Pin,HIGH);//Deactive LSB
   
   //MSB Second
+  CleanByteToDAC();
   digitalWrite(CSMSB_Pin,LOW);//Active MSB
   
   digitalWrite(WR_Pin,LOW);
-  WriteShiftRegister(MSBytes);
+  WriteByteToDAC(MSBytes);
   digitalWrite(WR_Pin,HIGH);
   
   digitalWrite(CSMSB_Pin,HIGH);//Deactive MSB
+  
+  CleanByteToDAC();
   
   //actually write into DAC register
   digitalWrite(LDAC_Pin,LOW);
@@ -123,27 +208,27 @@ void DACOutputToWriteIn(int input)
 {
   if(input == 0)
   {
-    digitalWrite(Addr_0_Pin,HIGH);
-    digitalWrite(Addr_1_Pin,HIGH);
+    digitalWrite(Addr_0_Pin,LOW);
+    digitalWrite(Addr_1_Pin,LOW);
   }
   else
   {
     if(input == 1)
     {
-      digitalWrite(Addr_0_Pin,LOW);
-      digitalWrite(Addr_1_Pin,HIGH);
+      digitalWrite(Addr_0_Pin,HIGH);
+      digitalWrite(Addr_1_Pin,LOW);
     }
     else
     {
       if(input == 2)
       {
-        digitalWrite(Addr_0_Pin,HIGH);
-        digitalWrite(Addr_1_Pin,LOW);
+        digitalWrite(Addr_0_Pin,LOW);
+        digitalWrite(Addr_1_Pin,HIGH);
       }
       else
       {
-        digitalWrite(Addr_0_Pin,LOW);
-        digitalWrite(Addr_1_Pin,LOW);
+        digitalWrite(Addr_0_Pin,HIGH);
+        digitalWrite(Addr_1_Pin,HIGH);
       }
     }
   }
@@ -176,12 +261,14 @@ void ProcessData(int messageType)
       int convertedVal = ((note + 1)*32-1);  
       LSBytes = lowByte(convertedVal);
       MSBytes = highByte(convertedVal);
-    /*    
+
       Serial.print("VCO Volt : ");
+      Serial.println(convertedVal);
+      /*
       Serial.print(MSBytes,BIN);
       Serial.print(" ");
       Serial.println(LSBytes,BIN);
-    */
+      */
       WriteDAC(VCO_DAC_ID);
     }
     else
@@ -223,11 +310,12 @@ void loop()
         if (velocity > 0) 
         {
           Serial.println(String("Note On:  ch=") + channel + ", note=" + note + ", velocity=" + velocity);
+          Serial.println(note, HEX);
           ProcessData(1);
         } 
         else 
         {
-          Serial.println(String("Note Off: ch=") + channel + ", note=" + note);
+          //Serial.println(String("Note Off: ch=") + channel + ", note=" + note);
           ProcessData(0);
         }
         break;
@@ -235,7 +323,7 @@ void loop()
         note = MIDI.getData1();
         velocity = MIDI.getData2();
         channel = MIDI.getChannel();
-        Serial.println(String("Note Off: ch=") + channel + ", note=" + note + ", velocity=" + velocity);
+        //Serial.println(String("Note Off: ch=") + channel + ", note=" + note + ", velocity=" + velocity);
         ProcessData(0);
         break;
       default:
