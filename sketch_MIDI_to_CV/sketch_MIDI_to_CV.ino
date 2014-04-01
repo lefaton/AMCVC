@@ -9,8 +9,12 @@ By Utopikprod
 //MIDI channel used
 const int MIDIChannel = 3;
 
-//CV VCO Offset
+//CV VCO tuning
 const int VCO_CV_Offset = 0;
+const float VCO_CV_step = 68.25;
+const int MIDI_Min_Note = 24;
+const int MIDI_Max_Note = 84;
+const int MIDI_Start_Offset = 24;
 
 //const IO variables
 const int midiInput_Pin = 2;
@@ -260,16 +264,17 @@ void ProcessData(int messageType)
       MSBytes = 0x8;
       WriteDAC(Gate_DAC_ID); 
                 
-      //Set vco voltage following hexa value in midiNoteBuffer[bufferPosition]   
-      //128*32-1 = max val 4095
-      int convertedVal = ((note + 1)*32-1);
-      convertedVal += VCO_CV_Offset;  
+      //Set vco voltage
+      note += VCO_CV_Offset;
+      note = constrain(note, MIDI_Min_Note, MIDI_Max_Note);
+      int convertedVal = (int)((float)(note-MIDI_Start_Offset) * VCO_CV_step);
+      
       LSBytes = lowByte(convertedVal);
       MSBytes = highByte(convertedVal);
 
+      /*
       Serial.print("VCO Volt : ");
       Serial.println(convertedVal);
-      /*
       Serial.print(MSBytes,BIN);
       Serial.print(" ");
       Serial.println(LSBytes,BIN);
