@@ -5,7 +5,7 @@ Arduino MIDI to CV converter
 
 Purpose:
 
-I created this project for easily pass from MIDI to CV using an arduino platform thru a MAX526 12 bits DAC.
+I created this project for easily pass from MIDI to CV using an arduino platform thru a MCP4922 12 bits DAC.
 
 The code include specific MIDI CC messages that are tb-303 specific controls. I will use this board as a daughter board for drive a x0x-heart board thru MIDI connection: http://www.openmusiclabs.com/projects/x0x-heart/
 
