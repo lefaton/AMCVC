@@ -19,8 +19,19 @@ const int MIDI_Start_Offset = 24;
 
 //const IO variables
 const int midiInput_Pin = 2;
-//const int DACInputPin = 3;
 const int led_Pin = 6;
+const int frontPanelLed_Pin = 5;
+
+//x0x heart digital control
+const int decay_Pin = 4;
+const int accent_Pin = 7;
+const int slideIn_Pin = 8;
+const int slideOut_Pin = 12;
+
+const int squareWaveIn_Pin = 13;
+const int sawWaveIn_Pin = 14;
+const int squareWaveOut_Pin = 15;
+const int sawWaveOut_Pin = 16;
 
 //MCP4922 DAC control
 const int CS_Pin = 10;
@@ -38,8 +49,11 @@ byte MSBytes = 0x0;
 int type, note, velocity, channel, d1, d2;
 
 //x0x heart specific control
+const byte decayCC = 0x63;
 const byte accentCC = 0x64;
-const byte slideCC = 0x66;
+const byte slideInCC = 0x65;
+const byte slideOutCC = 0x66;
+
 const byte triggerLimit = 0x64;
 
 //MIDI specific table
@@ -76,6 +90,16 @@ void setup()
  pinMode(PIN_D3, OUTPUT);
  
  pinMode(led_Pin,OUTPUT);
+ pinMode(decay_Pin,OUTPUT);
+ pinMode(accent_Pin,OUTPUT);
+ pinMode(slideIn_Pin,OUTPUT);
+ pinMode(slideOut_Pin,OUTPUT);
+ 
+ pinMode(squareWaveOut_Pin,OUTPUT);
+ pinMode(sawWaveOut_Pin,OUTPUT);
+ pinMode(squareWaveIn_Pin,INPUT);
+ pinMode(sawWaveIn_Pin,INPUT);
+ 
  pinMode(midiInput_Pin, INPUT);
  
  pinMode(CS_Pin, OUTPUT);
@@ -85,6 +109,10 @@ void setup()
  pinMode(VCF_Gate_Pin, OUTPUT);
  
  digitalWrite(led_Pin,HIGH);
+ digitalWrite(decay_Pin,HIGH);
+ digitalWrite(accent_Pin,HIGH);
+ digitalWrite(slideIn_Pin,HIGH);
+ digitalWrite(slideOut_Pin,HIGH);
 }
 
 void WriteDAC()
@@ -105,7 +133,7 @@ void ProcessData(int messageType)
   if( messageType == 0 )
   {
     //Set gate voltage to 0V
-    digitalWrite(VCO_Gate_Pin,LOW);
+    digitalWrite(VCO_Gate_Pin,HIGH);
   }
   else
   {
@@ -114,7 +142,7 @@ void ProcessData(int messageType)
     {
       blinkLED();
       //Set gate voltage to 5V
-      digitalWrite(VCO_Gate_Pin,HIGH);
+      digitalWrite(VCO_Gate_Pin,LOW);
                 
       //Set vco voltage
       note += VCO_CV_Offset;
@@ -142,14 +170,52 @@ void ProcessData(int messageType)
       //Midi CC Mess
       if(messageType == 2)
       {
-        if(note==accentCC && velocity>triggerLimit)
+        if(note==decayCC)      
         {
-           //Set On digital out for accent
+           if(velocity>triggerLimit)
+           {
+              digitalWrite(decay_Pin,LOW);
+           }
+           else
+           {
+              digitalWrite(decay_Pin,HIGH);
+           }
         }
         
-        if(note==slideCC && velocity>triggerLimit)
+        if(note==accentCC)
         {
-           //Set On digital out for slide
+           if(velocity>triggerLimit)
+           {
+              digitalWrite(accent_Pin,LOW);
+           }
+           else
+           {
+              digitalWrite(accent_Pin,HIGH);
+           }
+        }
+        
+        if(note==slideInCC)
+        {
+           if(velocity>triggerLimit)
+           {
+              digitalWrite(slideIn_Pin,LOW);
+           }
+           else
+           {
+              digitalWrite(slideIn_Pin,HIGH);
+           }
+        }
+        
+        if(note==slideOutCC)
+        {
+           if(velocity>triggerLimit)
+           {
+              digitalWrite(slideOut_Pin,LOW);
+           }
+           else
+           {
+              digitalWrite(slideOut_Pin,HIGH);
+           }
         }
       }
     }
@@ -158,13 +224,21 @@ void ProcessData(int messageType)
 
 void blinkLED()
 {
+   digitalWrite(frontPanelLed_Pin,LOW);
    digitalWrite(led_Pin,LOW);
    delay(25);
+   digitalWrite(frontPanelLed_Pin,HIGH);
    digitalWrite(led_Pin,HIGH);
 }
 
 void loop()
 {
+  int sawVal = digitalRead(sawWaveIn_Pin);
+  digitalWrite(sawWaveOut_Pin,sawVal);
+   
+  int squareVal = digitalRead(squareWaveIn_Pin);
+  digitalWrite(squareWaveOut_Pin,squareVal);
+  
   if( MIDI.read() )
   {
     byte type = MIDI.getType();
@@ -190,6 +264,13 @@ void loop()
         channel = MIDI.getChannel();
         //Serial.println(String("Note Off: ch=") + channel + ", note=" + note + ", velocity=" + velocity);
         ProcessData(0);
+        break;
+      case ControlChange:
+        note = MIDI.getData1();
+        velocity = MIDI.getData2();
+        channel = MIDI.getChannel();
+        //Serial.println(String("Control Change: ch=") + channel + ", note=" + note + ", velocity=" + velocity);
+        ProcessData(2);
         break;
       default:
         d1 = MIDI.getData1();

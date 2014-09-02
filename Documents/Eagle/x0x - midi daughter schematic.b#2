@@ -2712,7 +2712,7 @@ Please make sure your boards conform to these design rules.</description>
 <element name="R1" library="resistor" package="0204/7" value="220" x="60.96" y="25.4" rot="R270"/>
 <element name="R2" library="resistor" package="0204/7" value="270" x="87.63" y="24.13" rot="R90"/>
 <element name="C1" library="rcl" package="E1,8-4" value="10 µF" x="68.58" y="57.15"/>
-<element name="R3" library="rcl" package="0204/7" value="220" x="34.29" y="31.75" rot="R270"/>
+<element name="R3" library="rcl" package="0204/7" value="220" x="5.08" y="-3.81"/>
 </elements>
 <signals>
 <signal name="GND">
@@ -2812,9 +2812,11 @@ Please make sure your boards conform to these design rules.</description>
 <wire x1="69.85" y1="21.59" x2="67.31" y2="19.05" width="0.1524" layer="1"/>
 </signal>
 <signal name="N$7">
-<contactref element="MICRO-CONTROLER" pad="D5"/>
+<contactref element="MICRO-CONTROLER" pad="D6"/>
 <contactref element="R3" pad="1"/>
-<wire x1="34.29" y1="35.56" x2="39.37" y2="35.56" width="0" layer="19" extent="1-1"/>
+<contactref element="MICRO-CONTROLER" pad="D5"/>
+<wire x1="39.37" y1="33.02" x2="39.37" y2="35.56" width="0" layer="19" extent="1-1"/>
+<wire x1="1.27" y1="-3.81" x2="39.37" y2="33.02" width="0" layer="19" extent="1-1"/>
 </signal>
 </signals>
 </board>
