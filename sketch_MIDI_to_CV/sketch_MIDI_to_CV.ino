@@ -27,6 +27,8 @@ const int decay_Pin = 4;
 const int accent_Pin = 7;
 const int slideIn_Pin = 8;
 const int slideOut_Pin = 12;
+boolean slideIn = false;
+boolean slideOut = false;
 
 const int squareWaveIn_Pin = 13;
 const int sawWaveIn_Pin = 14;
@@ -55,22 +57,6 @@ const byte slideInCC = 0x65;
 const byte slideOutCC = 0x66;
 
 const byte triggerLimit = 0x64;
-
-//MIDI specific table
-const byte noteOff = 0x80;
-const byte noteOn = 0x90;
-const byte aftertouch = 0xA0;
-const byte cc = 0xB0;
-const byte patchRange = 0xC0;
-const byte channelPressure = 0xD0;
-const byte pitchBend = 0xE0;
-const byte sysexStart = 0xF0;
-
-const byte sysexStop = 0xF7;
-const byte clock = 0xF8;
-const byte startSeq = 0xFA;
-const byte contSeq = 0xFB;
-const byte stopSeq = 0xFC;
 
 HardwareSerial Uart = HardwareSerial();
 
@@ -198,10 +184,17 @@ void ProcessData(int messageType)
         {
            if(velocity>triggerLimit)
            {
+              if( slideOut == true )
+              {
+                 slideOut = false;
+                 digitalWrite(slideOut_Pin,HIGH);
+              }
+              slideIn = true;
               digitalWrite(slideIn_Pin,LOW);
            }
            else
            {
+              slideIn = false;
               digitalWrite(slideIn_Pin,HIGH);
            }
         }
@@ -210,10 +203,18 @@ void ProcessData(int messageType)
         {
            if(velocity>triggerLimit)
            {
+             if( slideIn == true )
+              {
+                 slideIn = false;
+                 digitalWrite(slideIn_Pin,HIGH);
+              }
+             
+              slideOut = true;
               digitalWrite(slideOut_Pin,LOW);
            }
            else
            {
+              slideOut = false;
               digitalWrite(slideOut_Pin,HIGH);
            }
         }
