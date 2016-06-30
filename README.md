@@ -13,3 +13,6 @@ The Arduino platform I use is a specific branch named Teensy. I use an old Teens
 (The last version is way more powerfull)
 
 Thanks to mention http://github.com/utopikprod/ as reference if you use it.
+
+NOTE:
+At this point, the project is on hold. The code is working well (was tested successfully on the prototype), but I have some bugs on the PCB layout. I did not find time for fix that until now, but at some point I will...
