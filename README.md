@@ -1,18 +1,225 @@
-AMCVC
-=====
+# AMCVC — Arduino MIDI to CV Converter
 
-Arduino MIDI to CV converter
+A MIDI-to-CV daughter board designed to drive the [x0x-heart](http://www.openmusiclabs.com/projects/x0x-heart/) — an open-source clone of the Roland TB-303 bass synthesizer engine. The board sits between a MIDI source and the x0x-heart, converting MIDI note and CC messages into analog control voltages (CV) and digital gate/control signals.
 
-Purpose:
+Built around a **Teensy++ 1.0** microcontroller and a **MCP4922 12-bit dual DAC** via SPI. The firmware is written as an Arduino sketch.
 
-I created this project for easily pass from MIDI to CV using an arduino platform thru a MCP4922 12 bits DAC.
+> **Status:** The firmware is working and was successfully tested on a prototype. The PCB layout has known bugs and has not been corrected yet.
 
-The code include specific MIDI CC messages that are tb-303 specific controls. I will use this board as a daughter board for drive a x0x-heart board thru MIDI connection: http://www.openmusiclabs.com/projects/x0x-heart/
+---
 
-The Arduino platform I use is a specific branch named Teensy. I use an old Teensy++ 1.0 for this project since it is pretty simple, I don't need more. You can find info and interesting resources here: https://www.pjrc.com/teensy/
-(The last version is way more powerfull)
+## Context — What Is the x0x-heart?
 
-Thanks to mention http://github.com/utopikprod/ as reference if you use it.
+The [x0x-heart](http://www.openmusiclabs.com/projects/x0x-heart/) is an open hardware recreation of the Roland TB-303 synthesizer core. It exposes CV and gate inputs for pitch, filter cutoff, and a set of digital control lines (decay, accent, slide in, slide out) that replicate the 303's characteristic playing articulations.
 
-NOTE:
-At this point, the project is on hold. The code is working well (was tested successfully on the prototype), but I have some bugs on the PCB layout. I did not find time for fix that until now, but at some point I will...
+The AMCVC board plugs into those inputs and translates MIDI messages into the signals the x0x-heart expects, making it possible to sequence and play the 303 engine from any standard MIDI controller or DAW.
+
+---
+
+## Hardware Overview
+
+### Microcontroller — Teensy++ 1.0
+
+The [Teensy++ 1.0](https://www.pjrc.com/teensy/) is a compact USB-capable AVR microcontroller board (AT90USB1286). It runs the Arduino-compatible MIDI library and handles SPI communication with the DAC. A reference pinout is included in `Documents/Teensy 1.0++ pinout.png`.
+
+### DAC — MCP4922 (12-bit, dual-channel, SPI)
+
+The [MCP4922](https://www.microchip.com/MCP4922) is a 12-bit dual-output DAC communicating over SPI. It provides two independent CV outputs:
+
+| Channel | Purpose     | Constant       |
+|---------|-------------|----------------|
+| A (0)   | VCO pitch   | `VCO_DAC_ID = 0` |
+| B (1)   | VCF cutoff  | `VCF_DAC_ID = 1` |
+
+SPI is configured MSB-first, SPI Mode 0. The 16-bit command word sent to the MCP4922 is structured as:
+
+```
+Bit 15   : A/B  — channel select (0 = channel A / VCO)
+Bit 14   : BUF  — input buffer (0 = unbuffered)
+Bit 13   : /GA  — gain select (1 = 1× gain, 0–Vref)
+Bit 12   : /SHDN — output enable (1 = active)
+Bits 11–0: 12-bit DAC value
+```
+
+The firmware sets bits 13 and 12 via `MSBytes | 0b00110000`, keeping channel A active with 1× gain.
+
+### MIDI Isolation — 6N138 Optocoupler
+
+MIDI input is electrically isolated using a [6N138](Documents/Datasheets/6N138.pdf) high-speed optocoupler, following the standard MIDI electrical interface specification. This prevents ground loops between the MIDI source and the synth circuitry.
+
+---
+
+## Pin Assignments (Teensy++ 1.0)
+
+| Pin | Direction | Function                    |
+|-----|-----------|-----------------------------|
+| 2   | INPUT     | MIDI input (via 6N138)      |
+| 4   | OUTPUT    | Decay control (x0x-heart)   |
+| 5   | OUTPUT    | Front panel LED             |
+| 6   | OUTPUT    | Board LED                   |
+| 7   | OUTPUT    | Accent control (x0x-heart)  |
+| 8   | OUTPUT    | Slide In control            |
+| 9   | OUTPUT    | VCO Gate                    |
+| 10  | OUTPUT    | SPI CS (MCP4922 chip select)|
+| 11  | OUTPUT    | SPI LDAC (DAC latch)        |
+| 12  | OUTPUT    | Slide Out control           |
+| 13  | INPUT     | Square wave input (x0x)     |
+| 14  | INPUT     | Saw wave input (x0x)        |
+| 15  | OUTPUT    | Square wave output          |
+| 16  | OUTPUT    | Saw wave output             |
+| 17  | OUTPUT    | VCF Gate                    |
+
+---
+
+## MIDI Configuration
+
+```cpp
+const int MIDIChannel = 3;  // MIDI channel to listen on
+```
+
+The sketch listens on MIDI channel 3. To change channel, edit this constant and re-upload.
+
+---
+
+## MIDI Note to CV Conversion
+
+### Pitch (VCO)
+
+The firmware converts MIDI note numbers to a 12-bit DAC value using a linear mapping:
+
+```cpp
+const float VCO_CV_step    = 68.25;   // DAC counts per semitone
+const int   MIDI_Min_Note  = 24;      // C1 (lowest accepted note)
+const int   MIDI_Max_Note  = 84;      // C6 (highest accepted note)
+const int   MIDI_Start_Offset = 24;   // note 24 maps to DAC value 0
+const int   VCO_CV_Offset  = 0;       // global tuning offset in semitones
+```
+
+The conversion formula:
+
+```
+convertedVal = (note + VCO_CV_Offset - MIDI_Start_Offset) × VCO_CV_step
+```
+
+**Example values:**
+
+| MIDI Note | Note Name | DAC value | Approx. CV |
+|-----------|-----------|-----------|-----------|
+| 24        | C1        | 0         | 0 V       |
+| 36        | C2        | 819       | ~1 V      |
+| 48        | C3        | 1638      | ~2 V      |
+| 60        | C4 (middle C) | 2457  | ~3 V      |
+| 72        | C5        | 3276      | ~4 V      |
+| 84        | C6        | 4095      | ~5 V      |
+
+The 60-semitone range (C1–C6) maps to 0–4095, giving **1V/octave** when the DAC reference is 5V. Fine-tune `VCO_CV_step` if your VCO has a different V/oct scaling. The complete MIDI-to-CV lookup table is in `Documents/table_midi_cv.xlsx`.
+
+### Gate
+
+| MIDI event          | VCO Gate pin | Logic        |
+|---------------------|--------------|--------------|
+| Note On (velocity>0) | pin 9       | LOW (active) |
+| Note Off / velocity=0 | pin 9      | HIGH (off)   |
+
+The x0x-heart gate is active-low.
+
+---
+
+## TB-303 Specific CC Messages
+
+The x0x-heart exposes four articulation controls specific to the TB-303 playing style. The AMCVC firmware maps MIDI CC messages to these digital lines:
+
+| CC Number | Hex  | Function  | Effect when value > 100         |
+|-----------|------|-----------|---------------------------------|
+| 99        | 0x63 | Decay     | Pin 4 LOW (decay enabled)       |
+| 100       | 0x64 | Accent    | Pin 7 LOW (accent enabled)      |
+| 101       | 0x65 | Slide In  | Pin 8 LOW (slide in enabled)    |
+| 102       | 0x66 | Slide Out | Pin 12 LOW (slide out enabled)  |
+
+A CC value above 100 (`triggerLimit = 0x64`) activates the control; 100 or below deactivates it.
+
+**Slide mutual exclusion:** Slide In and Slide Out are mutually exclusive — activating one automatically cancels the other, mirroring the 303's hardware behavior.
+
+---
+
+## Wave Pass-Through
+
+The x0x-heart synthesizer core outputs both a **square wave** and a **sawtooth wave**. The AMCVC board reads these on pins 13/14 and re-outputs them on pins 15/16 every loop cycle, acting as a signal buffer/relay:
+
+```cpp
+digitalWrite(sawWaveOut_Pin,   digitalRead(sawWaveIn_Pin));
+digitalWrite(squareWaveOut_Pin, digitalRead(squareWaveIn_Pin));
+```
+
+This allows the waveforms to be routed to other destinations on the board without signal loading from the x0x-heart output.
+
+---
+
+## Repository Structure
+
+```
+sketch_MIDI_to_CV/
+  sketch_MIDI_to_CV.ino      ← Arduino firmware (upload this to Teensy)
+
+Documents/
+  table_midi_cv.xlsx         ← Full MIDI note to CV conversion table
+  Teensy 1.0++ pinout.png    ← Teensy++ 1.0 pin reference diagram
+  x0x Heart - tb-303.fpd    ← Front panel design (Frontpanel Designer)
+  x0xheartmanual.pdf         ← x0x-heart complete manual
+
+  Eagle/
+    x0x - midi daughter schematic.sch  ← Circuit schematic (Eagle CAD)
+    x0x - midi daughter schematic.brd  ← PCB layout (Eagle CAD)  ⚠️ has bugs
+
+  Datasheets/
+    MCP4922.pdf              ← 12-bit dual DAC datasheet
+    6N138.pdf                ← MIDI optocoupler datasheet
+```
+
+> ⚠️ **PCB note:** The Eagle `.brd` layout has known wiring bugs and should not be sent to a fab without review and correction. Use the schematic (`.sch`) as the reference, not the board file.
+
+---
+
+## Dependencies & Setup
+
+### Arduino Libraries Required
+
+- **MIDI Library** — [FortySevenEffects/arduino_midi_library](https://github.com/FortySevenEffects/arduino_midi_library)
+- **SPI** — built into the Arduino/Teensy core
+
+### Teensy Setup
+
+1. Install [Teensyduino](https://www.pjrc.com/teensy/teensyduino.html) (adds Teensy support to the Arduino IDE)
+2. Select board: **Teensy++ 1.0**
+3. Set USB Type to **Serial** (for debug output via `Serial.print`)
+4. Open `sketch_MIDI_to_CV/sketch_MIDI_to_CV.ino`
+5. Upload
+
+MIDI runs at 31250 baud on the hardware UART. Debug output runs at 57600 baud on USB Serial (visible in the Arduino Serial Monitor).
+
+---
+
+## Known Issues & Future Work
+
+- **PCB layout bugs** — the Eagle `.brd` file has routing errors; the board needs a PCB revision before manufacturing
+- **VCF CV** — `VCF_DAC_ID = 1` (DAC channel B) is defined but the VCF CV output is not yet driven by the firmware
+- **Polyphony** — the current firmware is monophonic (last note wins); no voice allocation
+- **MIDI channel filtering** — the sketch calls `MIDI.begin(MIDI_CHANNEL_OMNI)` but only `MIDIChannel = 3` is intended; CC filtering by channel is not implemented
+
+---
+
+## License
+
+GNU General Public License v2.0 — see [LICENSE](LICENSE).
+
+If you use or build on this project, please mention [github.com/utopikprod](https://github.com/utopikprod/) as a reference.
+
+---
+
+## References
+
+- [x0x-heart project (Open Music Labs)](http://www.openmusiclabs.com/projects/x0x-heart/)
+- [Teensy++ 1.0 (PJRC)](https://www.pjrc.com/teensy/)
+- [MCP4922 datasheet (Microchip)](Documents/Datasheets/MCP4922.pdf)
+- [6N138 optocoupler datasheet](Documents/Datasheets/6N138.pdf)
+- [MIDI Association electrical specification](https://www.midi.org/specifications-old/item/midi-din-electrical-specification)
