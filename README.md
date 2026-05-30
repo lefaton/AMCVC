@@ -26,17 +26,17 @@ The [Teensy++ 1.0](https://www.pjrc.com/teensy/) is a compact USB-capable AVR mi
 
 The [MCP4922](https://www.microchip.com/MCP4922) is a 12-bit dual-output DAC communicating over SPI. It provides two independent CV outputs:
 
-| Channel | Purpose     | Constant       |
-|---------|-------------|----------------|
+| Channel | Purpose     | Constant         |
+|---------|-------------|------------------|
 | A (0)   | VCO pitch   | `VCO_DAC_ID = 0` |
 | B (1)   | VCF cutoff  | `VCF_DAC_ID = 1` |
 
-SPI is configured MSB-first, SPI Mode 0. The 16-bit command word sent to the MCP4922 is structured as:
+SPI is configured MSB-first, SPI Mode 0. The 16-bit command word sent to the MCP4922 is:
 
 ```
-Bit 15   : A/B  — channel select (0 = channel A / VCO)
-Bit 14   : BUF  — input buffer (0 = unbuffered)
-Bit 13   : /GA  — gain select (1 = 1× gain, 0–Vref)
+Bit 15   : A/B   — channel select (0 = channel A / VCO)
+Bit 14   : BUF   — input buffer (0 = unbuffered)
+Bit 13   : /GA   — gain select (1 = 1× gain, 0–Vref)
 Bit 12   : /SHDN — output enable (1 = active)
 Bits 11–0: 12-bit DAC value
 ```
@@ -51,23 +51,23 @@ MIDI input is electrically isolated using a [6N138](Documents/Datasheets/6N138.p
 
 ## Pin Assignments (Teensy++ 1.0)
 
-| Pin | Direction | Function                    |
-|-----|-----------|-----------------------------|
-| 2   | INPUT     | MIDI input (via 6N138)      |
-| 4   | OUTPUT    | Decay control (x0x-heart)   |
-| 5   | OUTPUT    | Front panel LED             |
-| 6   | OUTPUT    | Board LED                   |
-| 7   | OUTPUT    | Accent control (x0x-heart)  |
-| 8   | OUTPUT    | Slide In control            |
-| 9   | OUTPUT    | VCO Gate                    |
-| 10  | OUTPUT    | SPI CS (MCP4922 chip select)|
-| 11  | OUTPUT    | SPI LDAC (DAC latch)        |
-| 12  | OUTPUT    | Slide Out control           |
-| 13  | INPUT     | Square wave input (x0x)     |
-| 14  | INPUT     | Saw wave input (x0x)        |
-| 15  | OUTPUT    | Square wave output          |
-| 16  | OUTPUT    | Saw wave output             |
-| 17  | OUTPUT    | VCF Gate                    |
+| Pin | Direction | Function                     |
+|-----|-----------|------------------------------|
+| 2   | INPUT     | MIDI input (via 6N138)       |
+| 4   | OUTPUT    | Decay control (x0x-heart)    |
+| 5   | OUTPUT    | Front panel LED              |
+| 6   | OUTPUT    | Board LED                    |
+| 7   | OUTPUT    | Accent control (x0x-heart)   |
+| 8   | OUTPUT    | Slide In control             |
+| 9   | OUTPUT    | VCO Gate                     |
+| 10  | OUTPUT    | SPI CS (MCP4922 chip select) |
+| 11  | OUTPUT    | SPI LDAC (DAC latch)         |
+| 12  | OUTPUT    | Slide Out control            |
+| 13  | INPUT     | Square wave input (x0x)      |
+| 14  | INPUT     | Saw wave input (x0x)         |
+| 15  | OUTPUT    | Square wave output           |
+| 16  | OUTPUT    | Saw wave output              |
+| 17  | OUTPUT    | VCF Gate                     |
 
 ---
 
@@ -88,14 +88,14 @@ The sketch listens on MIDI channel 3. To change channel, edit this constant and 
 The firmware converts MIDI note numbers to a 12-bit DAC value using a linear mapping:
 
 ```cpp
-const float VCO_CV_step    = 68.25;   // DAC counts per semitone
-const int   MIDI_Min_Note  = 24;      // C1 (lowest accepted note)
-const int   MIDI_Max_Note  = 84;      // C6 (highest accepted note)
+const float VCO_CV_step     = 68.25;  // DAC counts per semitone
+const int   MIDI_Min_Note   = 24;     // C1 (lowest accepted note)
+const int   MIDI_Max_Note   = 84;     // C6 (highest accepted note)
 const int   MIDI_Start_Offset = 24;   // note 24 maps to DAC value 0
-const int   VCO_CV_Offset  = 0;       // global tuning offset in semitones
+const int   VCO_CV_Offset   = 0;      // global tuning offset in semitones
 ```
 
-The conversion formula:
+Conversion formula:
 
 ```
 convertedVal = (note + VCO_CV_Offset - MIDI_Start_Offset) × VCO_CV_step
@@ -103,23 +103,23 @@ convertedVal = (note + VCO_CV_Offset - MIDI_Start_Offset) × VCO_CV_step
 
 **Example values:**
 
-| MIDI Note | Note Name | DAC value | Approx. CV |
-|-----------|-----------|-----------|-----------|
-| 24        | C1        | 0         | 0 V       |
-| 36        | C2        | 819       | ~1 V      |
-| 48        | C3        | 1638      | ~2 V      |
-| 60        | C4 (middle C) | 2457  | ~3 V      |
-| 72        | C5        | 3276      | ~4 V      |
-| 84        | C6        | 4095      | ~5 V      |
+| MIDI Note | Note Name     | DAC value | Approx. CV |
+|-----------|---------------|-----------|------------|
+| 24        | C1            | 0         | 0 V        |
+| 36        | C2            | 819       | ~1 V       |
+| 48        | C3            | 1638      | ~2 V       |
+| 60        | C4 (middle C) | 2457      | ~3 V       |
+| 72        | C5            | 3276      | ~4 V       |
+| 84        | C6            | 4095      | ~5 V       |
 
-The 60-semitone range (C1–C6) maps to 0–4095, giving **1V/octave** when the DAC reference is 5V. Fine-tune `VCO_CV_step` if your VCO has a different V/oct scaling. The complete MIDI-to-CV lookup table is in `Documents/table_midi_cv.xlsx`.
+The 60-semitone range (C1–C6) maps to 0–4095, giving **1V/octave** when the DAC reference voltage is 5V. Fine-tune `VCO_CV_step` if your VCO has a different V/oct scaling. The full lookup table is in `Documents/table_midi_cv.xlsx`.
 
 ### Gate
 
-| MIDI event          | VCO Gate pin | Logic        |
-|---------------------|--------------|--------------|
-| Note On (velocity>0) | pin 9       | LOW (active) |
-| Note Off / velocity=0 | pin 9      | HIGH (off)   |
+| MIDI event             | VCO Gate pin | Logic         |
+|------------------------|--------------|---------------|
+| Note On (velocity > 0) | pin 9        | LOW (active)  |
+| Note Off / velocity = 0 | pin 9       | HIGH (off)    |
 
 The x0x-heart gate is active-low.
 
@@ -127,14 +127,14 @@ The x0x-heart gate is active-low.
 
 ## TB-303 Specific CC Messages
 
-The x0x-heart exposes four articulation controls specific to the TB-303 playing style. The AMCVC firmware maps MIDI CC messages to these digital lines:
+The x0x-heart exposes four articulation controls specific to the TB-303 playing style. The firmware maps MIDI CC messages to digital lines:
 
-| CC Number | Hex  | Function  | Effect when value > 100         |
-|-----------|------|-----------|---------------------------------|
-| 99        | 0x63 | Decay     | Pin 4 LOW (decay enabled)       |
-| 100       | 0x64 | Accent    | Pin 7 LOW (accent enabled)      |
-| 101       | 0x65 | Slide In  | Pin 8 LOW (slide in enabled)    |
-| 102       | 0x66 | Slide Out | Pin 12 LOW (slide out enabled)  |
+| CC  | Hex   | Function   | Effect when value > 100          |
+|-----|-------|------------|----------------------------------|
+| 99  | 0x63  | Decay      | Pin 4 LOW (decay enabled)        |
+| 100 | 0x64  | Accent     | Pin 7 LOW (accent enabled)       |
+| 101 | 0x65  | Slide In   | Pin 8 LOW (slide in enabled)     |
+| 102 | 0x66  | Slide Out  | Pin 12 LOW (slide out enabled)   |
 
 A CC value above 100 (`triggerLimit = 0x64`) activates the control; 100 or below deactivates it.
 
@@ -144,14 +144,12 @@ A CC value above 100 (`triggerLimit = 0x64`) activates the control; 100 or below
 
 ## Wave Pass-Through
 
-The x0x-heart synthesizer core outputs both a **square wave** and a **sawtooth wave**. The AMCVC board reads these on pins 13/14 and re-outputs them on pins 15/16 every loop cycle, acting as a signal buffer/relay:
+The x0x-heart outputs both a **square wave** and a **sawtooth wave**. The AMCVC board reads these on pins 13/14 and re-outputs them on pins 15/16 every loop cycle, acting as a signal buffer:
 
 ```cpp
-digitalWrite(sawWaveOut_Pin,   digitalRead(sawWaveIn_Pin));
+digitalWrite(sawWaveOut_Pin,    digitalRead(sawWaveIn_Pin));
 digitalWrite(squareWaveOut_Pin, digitalRead(squareWaveIn_Pin));
 ```
-
-This allows the waveforms to be routed to other destinations on the board without signal loading from the x0x-heart output.
 
 ---
 
@@ -159,52 +157,52 @@ This allows the waveforms to be routed to other destinations on the board withou
 
 ```
 sketch_MIDI_to_CV/
-  sketch_MIDI_to_CV.ino      ← Arduino firmware (upload this to Teensy)
+  sketch_MIDI_to_CV.ino       ← Arduino firmware (upload this to Teensy)
 
 Documents/
-  table_midi_cv.xlsx         ← Full MIDI note to CV conversion table
-  Teensy 1.0++ pinout.png    ← Teensy++ 1.0 pin reference diagram
-  x0x Heart - tb-303.fpd    ← Front panel design (Frontpanel Designer)
-  x0xheartmanual.pdf         ← x0x-heart complete manual
+  table_midi_cv.xlsx          ← Full MIDI note to CV conversion table
+  Teensy 1.0++ pinout.png     ← Teensy++ 1.0 pin reference diagram
+  x0x Heart - tb-303.fpd     ← Front panel design (Frontpanel Designer)
+  x0xheartmanual.pdf          ← x0x-heart complete manual
 
   Eagle/
-    x0x - midi daughter schematic.sch  ← Circuit schematic (Eagle CAD)
-    x0x - midi daughter schematic.brd  ← PCB layout (Eagle CAD)  ⚠️ has bugs
+    *.sch   ← Circuit schematic (Eagle CAD) — use this as reference
+    *.brd   ← PCB layout (Eagle CAD) ⚠️ has known wiring bugs
 
   Datasheets/
-    MCP4922.pdf              ← 12-bit dual DAC datasheet
-    6N138.pdf                ← MIDI optocoupler datasheet
+    MCP4922.pdf               ← 12-bit dual DAC datasheet
+    6N138.pdf                 ← MIDI optocoupler datasheet
 ```
 
-> ⚠️ **PCB note:** The Eagle `.brd` layout has known wiring bugs and should not be sent to a fab without review and correction. Use the schematic (`.sch`) as the reference, not the board file.
+> ⚠️ **PCB note:** The Eagle `.brd` layout has known wiring bugs and should not be sent to a fab without review and correction.
 
 ---
 
-## Dependencies & Setup
+## Setup
 
 ### Arduino Libraries Required
 
 - **MIDI Library** — [FortySevenEffects/arduino_midi_library](https://github.com/FortySevenEffects/arduino_midi_library)
 - **SPI** — built into the Arduino/Teensy core
 
-### Teensy Setup
+### Upload Steps
 
-1. Install [Teensyduino](https://www.pjrc.com/teensy/teensyduino.html) (adds Teensy support to the Arduino IDE)
+1. Install [Teensyduino](https://www.pjrc.com/teensy/teensyduino.html)
 2. Select board: **Teensy++ 1.0**
-3. Set USB Type to **Serial** (for debug output via `Serial.print`)
+3. Set USB Type to **Serial** (for debug output)
 4. Open `sketch_MIDI_to_CV/sketch_MIDI_to_CV.ino`
 5. Upload
 
-MIDI runs at 31250 baud on the hardware UART. Debug output runs at 57600 baud on USB Serial (visible in the Arduino Serial Monitor).
+MIDI runs at 31250 baud on the hardware UART. Debug output runs at 57600 baud on USB Serial.
 
 ---
 
 ## Known Issues & Future Work
 
-- **PCB layout bugs** — the Eagle `.brd` file has routing errors; the board needs a PCB revision before manufacturing
-- **VCF CV** — `VCF_DAC_ID = 1` (DAC channel B) is defined but the VCF CV output is not yet driven by the firmware
-- **Polyphony** — the current firmware is monophonic (last note wins); no voice allocation
-- **MIDI channel filtering** — the sketch calls `MIDI.begin(MIDI_CHANNEL_OMNI)` but only `MIDIChannel = 3` is intended; CC filtering by channel is not implemented
+- **PCB layout bugs** — Eagle `.brd` has routing errors; needs a PCB revision before manufacturing
+- **VCF CV not implemented** — `VCF_DAC_ID = 1` (DAC channel B) is defined but not driven by the firmware
+- **Monophonic only** — no voice allocation; last note wins
+- **MIDI channel not filtered** — sketch uses `MIDI_CHANNEL_OMNI` but only channel 3 is intended
 
 ---
 
@@ -218,8 +216,8 @@ If you use or build on this project, please mention [github.com/utopikprod](http
 
 ## References
 
-- [x0x-heart project (Open Music Labs)](http://www.openmusiclabs.com/projects/x0x-heart/)
+- [x0x-heart (Open Music Labs)](http://www.openmusiclabs.com/projects/x0x-heart/)
 - [Teensy++ 1.0 (PJRC)](https://www.pjrc.com/teensy/)
-- [MCP4922 datasheet (Microchip)](Documents/Datasheets/MCP4922.pdf)
+- [MCP4922 datasheet](Documents/Datasheets/MCP4922.pdf)
 - [6N138 optocoupler datasheet](Documents/Datasheets/6N138.pdf)
-- [MIDI Association electrical specification](https://www.midi.org/specifications-old/item/midi-din-electrical-specification)
+- [MIDI electrical specification](https://www.midi.org/specifications-old/item/midi-din-electrical-specification)
