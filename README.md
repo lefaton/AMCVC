@@ -26,22 +26,24 @@ The [Teensy++ 1.0](https://www.pjrc.com/teensy/) is a compact USB-capable AVR mi
 
 The [MCP4922](https://www.microchip.com/MCP4922) is a 12-bit dual-output DAC communicating over SPI. It provides two independent CV outputs:
 
-| Channel | Purpose     | Constant         |
-|---------|-------------|------------------|
-| A (0)   | VCO pitch   | `VCO_DAC_ID = 0` |
-| B (1)   | VCF cutoff  | `VCF_DAC_ID = 1` |
+| Channel | Purpose     | Constant         | Driven by         |
+|---------|-------------|------------------|-------------------|
+| A (0)   | VCO pitch   | `VCO_DAC_ID = 0` | MIDI note number  |
+| B (1)   | VCF cutoff  | `VCF_DAC_ID = 1` | MIDI CC 74        |
 
 SPI is configured MSB-first, SPI Mode 0. The 16-bit command word sent to the MCP4922 is:
 
 ```
-Bit 15   : A/B   — channel select (0 = channel A / VCO)
+Bit 15   : A/B   — channel select (0 = channel A / VCO, 1 = channel B / VCF)
 Bit 14   : BUF   — input buffer (0 = unbuffered)
 Bit 13   : /GA   — gain select (1 = 1× gain, 0–Vref)
 Bit 12   : /SHDN — output enable (1 = active)
 Bits 11–0: 12-bit DAC value
 ```
 
-The firmware sets bits 13 and 12 via `MSBytes | 0b00110000`, keeping channel A active with 1× gain.
+`WriteDAC(channel, value)` builds the word per channel: it ORs in `0x3000` (bits 13
+and 12 → 1× gain, output active) and sets bit 15 from the channel argument, so both
+the VCO (channel A) and VCF (channel B) outputs are addressable.
 
 ### MIDI Isolation — 6N138 Optocoupler
 
@@ -77,7 +79,9 @@ MIDI input is electrically isolated using a [6N138](Documents/Datasheets/6N138.p
 const int MIDIChannel = 3;  // MIDI channel to listen on
 ```
 
-The sketch listens on MIDI channel 3. To change channel, edit this constant and re-upload.
+The sketch listens on MIDI channel 3 only — `MIDI.begin(MIDIChannel)` filters out
+all other channels at the library level. To change channel, edit this constant and
+re-upload.
 
 ---
 
@@ -116,12 +120,30 @@ The 60-semitone range (C1–C6) maps to 0–4095, giving **1V/octave** when the 
 
 ### Gate
 
-| MIDI event             | VCO Gate pin | Logic         |
-|------------------------|--------------|---------------|
-| Note On (velocity > 0) | pin 9        | LOW (active)  |
-| Note Off / velocity = 0 | pin 9       | HIGH (off)    |
+| MIDI event              | Gate pins      | Logic         |
+|-------------------------|----------------|---------------|
+| Note On (velocity > 0)  | pin 9 + pin 17 | LOW (active)  |
+| Note Off / velocity = 0 | pin 9 + pin 17 | HIGH (off)    |
 
-The x0x-heart gate is active-low.
+The x0x-heart gates are active-low. Both the VCO gate (pin 9) and VCF gate (pin 17)
+are driven together.
+
+### Note priority (monophonic note stack)
+
+The firmware is monophonic but tracks held notes in a small stack (up to 8 notes):
+
+- **Note On** pushes the note and plays it immediately (last-note priority).
+- **Note Off** removes the note from the stack. Releasing a note that is *not* the
+  one currently sounding does **not** cut the gate — it just leaves the stack.
+- Releasing the sounding note falls back to the most recently held note still down;
+  the gate only closes when no notes remain.
+
+This makes legato/overlapping play behave the way a hardware mono synth does.
+
+### VCF cutoff (CC 74)
+
+MIDI **CC 74** (the standard "brightness"/cutoff controller) drives the VCF on DAC
+channel B. Values 0–127 are mapped linearly to the full 12-bit range (0–4095).
 
 ---
 
@@ -136,7 +158,9 @@ The x0x-heart exposes four articulation controls specific to the TB-303 playing 
 | 101 | 0x65  | Slide In   | Pin 8 LOW (slide in enabled)     |
 | 102 | 0x66  | Slide Out  | Pin 12 LOW (slide out enabled)   |
 
-A CC value above 100 (`triggerLimit = 0x64`) activates the control; 100 or below deactivates it.
+A CC value strictly above 100 (`triggerLimit = 0x64`) activates the control; 100 or
+below deactivates it. CC 74 (cutoff) is the exception — it is a continuous value, not
+a trigger (see [VCF cutoff](#vcf-cutoff-cc-74) above).
 
 **Slide mutual exclusion:** Slide In and Slide Out are mutually exclusive — activating one automatically cancels the other, mirroring the 303's hardware behavior.
 
@@ -200,9 +224,17 @@ MIDI runs at 31250 baud on the hardware UART. Debug output runs at 57600 baud on
 ## Known Issues & Future Work
 
 - **PCB layout bugs** — Eagle `.brd` has routing errors; needs a PCB revision before manufacturing
-- **VCF CV not implemented** — `VCF_DAC_ID = 1` (DAC channel B) is defined but not driven by the firmware
-- **Monophonic only** — no voice allocation; last note wins
-- **MIDI channel not filtered** — sketch uses `MIDI_CHANNEL_OMNI` but only channel 3 is intended
+- **Monophonic only** — no chord support; the note stack gives last-note priority but a single voice
+- **Firmware untested since revision** — the 2026 firmware changes (dual-channel DAC,
+  VCF CC 74, note stack, channel filtering, non-blocking LED) have not yet been flashed
+  and verified on hardware
+
+### Fixed in the 2026 revision
+
+- **VCF CV** — DAC channel B is now driven from MIDI CC 74
+- **MIDI channel filtering** — `MIDI.begin(MIDIChannel)` replaces `MIDI_CHANNEL_OMNI`
+- **Gate latency** — the LED blink is non-blocking, so Note On no longer delays the DAC write by 25 ms
+- **Stuck-note edge cases** — a note stack prevents Note Off of an inactive note from cutting the gate
 
 ---
 
