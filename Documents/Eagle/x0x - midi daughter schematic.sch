@@ -13616,7 +13616,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <part name="MIDI2" library="rcl" deviceset="R-US_" device="0207/10"/>
 <part name="LED" library="rcl" deviceset="R-US_" device="0207/10"/>
 <part name="VCO" library="rcl" deviceset="R-US_" device="0207/10"/>
-<part name="UNUSED" library="rcl" deviceset="R-US_" device="0207/10"/>
+<part name="VCF_CUTOFF" library="rcl" deviceset="R-US_" device="0207/10"/>
 <part name="SLIDE_IN" library="rcl" deviceset="R-US_" device="0207/10"/>
 <part name="SLIDE_OUT" library="rcl" deviceset="R-US_" device="0207/10"/>
 <part name="DECAY" library="rcl" deviceset="R-US_" device="0207/10"/>
@@ -13656,7 +13656,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <instance part="MIDI2" gate="G$1" x="-101.6" y="142.24"/>
 <instance part="LED" gate="G$1" x="-101.6" y="137.16"/>
 <instance part="VCO" gate="G$1" x="-101.6" y="132.08"/>
-<instance part="UNUSED" gate="G$1" x="-101.6" y="127"/>
+<instance part="VCF_CUTOFF" gate="G$1" x="-101.6" y="127"/>
 <instance part="SLIDE_IN" gate="G$1" x="-101.6" y="121.92"/>
 <instance part="SLIDE_OUT" gate="G$1" x="-101.6" y="116.84"/>
 <instance part="DECAY" gate="G$1" x="-101.6" y="111.76"/>
@@ -13751,9 +13751,6 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <pinref part="C1" gate="G$1" pin="-"/>
 <wire x1="10.16" y1="149.86" x2="83.82" y2="149.86" width="0.1524" layer="91"/>
 <wire x1="83.82" y1="149.86" x2="83.82" y2="43.18" width="0.1524" layer="91"/>
-<pinref part="DAC" gate="A" pin="~SHDN"/>
-<wire x1="20.32" y1="111.76" x2="15.24" y2="111.76" width="0.1524" layer="91"/>
-<wire x1="15.24" y1="111.76" x2="15.24" y2="96.52" width="0.1524" layer="91"/>
 <pinref part="DAC" gate="A" pin="AVSS"/>
 <wire x1="15.24" y1="96.52" x2="20.32" y2="96.52" width="0.1524" layer="91"/>
 <wire x1="15.24" y1="96.52" x2="15.24" y2="78.74" width="0.1524" layer="91"/>
@@ -13791,7 +13788,6 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <junction x="-71.12" y="43.18"/>
 <junction x="-71.12" y="38.1"/>
 <junction x="10.16" y="149.86"/>
-<junction x="20.32" y="111.76"/>
 <junction x="20.32" y="96.52"/>
 <junction x="-7.62" y="66.04"/>
 </segment>
@@ -13807,7 +13803,12 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <wire x1="20.32" y1="129.54" x2="10.16" y2="129.54" width="0.1524" layer="91"/>
 <junction x="10.16" y="129.54"/>
 <wire x1="10.16" y1="129.54" x2="10.16" y2="127" width="0.1524" layer="91"/>
-<wire x1="10.16" y1="127" x2="10.16" y2="58.42" width="0.1524" layer="91"/>
+<wire x1="10.16" y1="127" x2="10.16" y2="111.76" width="0.1524" layer="91"/>
+<wire x1="10.16" y1="111.76" x2="10.16" y2="58.42" width="0.1524" layer="91"/>
+<junction x="10.16" y="111.76"/>
+<pinref part="DAC" gate="A" pin="~SHDN"/>
+<wire x1="10.16" y1="111.76" x2="20.32" y2="111.76" width="0.1524" layer="91"/>
+<junction x="20.32" y="111.76"/>
 <wire x1="10.16" y1="58.42" x2="43.18" y2="58.42" width="0.1524" layer="91"/>
 <wire x1="-71.12" y1="58.42" x2="10.16" y2="58.42" width="0.1524" layer="91"/>
 <junction x="10.16" y="58.42"/>
@@ -13927,7 +13928,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <wire x1="66.04" y1="152.4" x2="-91.44" y2="152.4" width="0.1524" layer="91"/>
 <wire x1="-91.44" y1="152.4" x2="-91.44" y2="127" width="0.1524" layer="91"/>
 <wire x1="-91.44" y1="127" x2="-96.52" y2="127" width="0.1524" layer="91"/>
-<pinref part="UNUSED" gate="G$1" pin="2"/>
+<pinref part="VCF_CUTOFF" gate="G$1" pin="2"/>
 <wire x1="-96.52" y1="127" x2="-99.06" y2="127" width="0.1524" layer="91"/>
 <junction x="-96.52" y="127"/>
 <junction x="58.42" y="132.08"/>
@@ -14168,7 +14169,7 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 </net>
 <net name="N$36" class="0">
 <segment>
-<pinref part="UNUSED" gate="G$1" pin="1"/>
+<pinref part="VCF_CUTOFF" gate="G$1" pin="1"/>
 <junction x="-106.68" y="127"/>
 </segment>
 </net>
@@ -14199,7 +14200,12 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <net name="N$41" class="0">
 <segment>
 <pinref part="DAC" gate="A" pin="~LDAC"/>
+<pinref part="MICRO-CONTROLER" gate="G$1" pin="11"/>
+<wire x1="-7.62" y1="99.06" x2="2.54" y2="99.06" width="0.1524" layer="91"/>
+<wire x1="2.54" y1="99.06" x2="2.54" y2="114.3" width="0.1524" layer="91"/>
+<wire x1="2.54" y1="114.3" x2="20.32" y2="114.3" width="0.1524" layer="91"/>
 <junction x="20.32" y="114.3"/>
+<junction x="-7.62" y="99.06"/>
 </segment>
 </net>
 <net name="N$42" class="0">
@@ -14218,12 +14224,6 @@ Source: http://www.murata.com .. GRM43DR72E224KW01.pdf</description>
 <segment>
 <pinref part="DAC" gate="A" pin="NC"/>
 <junction x="20.32" y="101.6"/>
-</segment>
-</net>
-<net name="N$45" class="0">
-<segment>
-<pinref part="MICRO-CONTROLER" gate="G$1" pin="11"/>
-<junction x="-7.62" y="99.06"/>
 </segment>
 </net>
 <net name="N$46" class="0">

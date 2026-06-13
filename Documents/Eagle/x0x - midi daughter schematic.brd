@@ -2754,7 +2754,7 @@ Please make sure your boards conform to these design rules.</description>
 <element name="MIDI2" library="rcl" package="0207/10" value="" x="20.24" y="57.96"/>
 <element name="LED" library="rcl" package="0207/10" value="" x="20.24" y="52.88"/>
 <element name="VCO" library="rcl" package="0207/10" value="" x="20.24" y="47.8"/>
-<element name="UNUSED" library="rcl" package="0207/10" value="" x="20.24" y="42.72"/>
+<element name="VCF_CUTOFF" library="rcl" package="0207/10" value="" x="20.24" y="42.72"/>
 <element name="SLIDE_IN" library="rcl" package="0207/10" value="" x="20.24" y="37.64"/>
 <element name="SLIDE_OUT" library="rcl" package="0207/10" value="" x="20.24" y="32.56"/>
 <element name="DECAY" library="rcl" package="0207/10" value="" x="20.24" y="27.48"/>
@@ -2982,7 +2982,7 @@ Please make sure your boards conform to these design rules.</description>
 </signal>
 <signal name="N$12">
 <contactref element="DAC" pad="10"/>
-<contactref element="UNUSED" pad="2"/>
+<contactref element="VCF_CUTOFF" pad="2"/>
 <wire x1="50.8" y1="43.18" x2="25.4" y2="43.18" width="0.1524" layer="16"/>
 <wire x1="54.61" y1="46.99" x2="50.8" y2="43.18" width="0.1524" layer="16"/>
 <wire x1="60.96" y1="46.99" x2="54.61" y2="46.99" width="0.1524" layer="16"/>
@@ -3145,7 +3145,7 @@ Please make sure your boards conform to these design rules.</description>
 <contactref element="SLIDE_IN" pad="1"/>
 </signal>
 <signal name="N$36">
-<contactref element="UNUSED" pad="1"/>
+<contactref element="VCF_CUTOFF" pad="1"/>
 </signal>
 <signal name="N$37">
 <contactref element="VCO" pad="1"/>
