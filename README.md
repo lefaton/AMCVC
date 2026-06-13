@@ -4,7 +4,9 @@ A MIDI-to-CV daughter board designed to drive the [x0x-heart](http://www.openmus
 
 Built around a **Teensy++ 1.0** microcontroller and a **MCP4922 12-bit dual DAC** via SPI. The firmware is written as an Arduino sketch.
 
-> **Status:** The firmware is working and was successfully tested on a prototype. The PCB layout has known bugs and has not been corrected yet.
+> **Status:** The firmware is working and was successfully tested on a prototype. The
+> schematic and board netlist have been corrected (2026 revision) — the two changed nets
+> (`~SHDN`, `~LDAC`) still need re-routing in Eagle plus a DRC pass before fabrication.
 
 ---
 
@@ -191,14 +193,17 @@ Documents/
 
   Eagle/
     *.sch   ← Circuit schematic (Eagle CAD) — use this as reference
-    *.brd   ← PCB layout (Eagle CAD) ⚠️ has known wiring bugs
+    *.brd   ← PCB layout (Eagle CAD) ⚠️ 2 nets unrouted after netlist fix
 
   Datasheets/
     MCP4922.pdf               ← 12-bit dual DAC datasheet
     6N138.pdf                 ← MIDI optocoupler datasheet
 ```
 
-> ⚠️ **PCB note:** The Eagle `.brd` layout has known wiring bugs and should not be sent to a fab without review and correction.
+> ⚠️ **PCB note:** The Eagle netlist bugs (`~SHDN` grounded, `~LDAC` floating) are fixed in
+> both `.sch` and `.brd`. On the board these two nets are now **unrouted airwires** — open in
+> Eagle, run ERC/forward-annotation, route `~SHDN` (→ +5V) and `~LDAC` (→ MCU pin 11), then DRC
+> before sending to a fab.
 
 ---
 
@@ -223,13 +228,29 @@ MIDI runs at 31250 baud on the hardware UART. Debug output runs at 57600 baud on
 
 ## Known Issues & Future Work
 
-- **PCB layout bugs** — Eagle `.brd` has routing errors; needs a PCB revision before manufacturing
+- **Two nets need routing** — after the 2026 netlist fixes, `~SHDN` and `~LDAC` are
+  unrouted airwires on the board (see below); they must be routed in Eagle before a fab run
 - **Monophonic only** — no chord support; the note stack gives last-note priority but a single voice
 - **Firmware untested since revision** — the 2026 firmware changes (dual-channel DAC,
   VCF CC 74, note stack, channel filtering, non-blocking LED) have not yet been flashed
   and verified on hardware
 
 ### Fixed in the 2026 revision
+
+**Schematic / PCB netlist** (corrected in both `.sch` and `.brd`, verified by netlist
+re-parse — Eagle ERC/DRC still required):
+
+- **DAC `~SHDN` no longer grounded** — pin 9 moved from `AGND` to `+5V`. It was tied to
+  ground, which held both DAC outputs in permanent hardware shutdown (root cause of "no CV out")
+- **DAC `~LDAC` now connected** — pin 8 wired to MCU pin 11; both were floating, so the
+  latch line never transferred values to the outputs
+- **VCF output labelled** — the `VOUTB` connector pad was renamed `UNUSED` → `VCF_CUTOFF`
+
+> On the board, the two changed nets (`~SHDN`, `~LDAC`) are left as **airwires** — the old
+> AGND copper at pad 9 was removed so nothing shorts. Open the `.brd` in Eagle, run
+> ERC/forward-annotation, route the two airwires, then DRC.
+
+**Firmware:**
 
 - **VCF CV** — DAC channel B is now driven from MIDI CC 74
 - **MIDI channel filtering** — `MIDI.begin(MIDIChannel)` replaces `MIDI_CHANNEL_OMNI`
